@@ -1,0 +1,10 @@
+Bottleneck
+glumpy
+h5py
+matplotlib
+numba
+numpy
+pandas
+pyFFTW
+scipy
+tables
