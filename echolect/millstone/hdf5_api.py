@@ -20,6 +20,7 @@ class VoltageReader(object):
         framenums = np.cumsum(np.hstack(([0], nframes)))
         totframes = framenums[-1]
         self._framenums = framenums[:-1]
+        self._frametimes = [None]*len(files)
 
         firstfile = h5py.File(files[0], 'r')
         vlt = voltage(firstfile)
@@ -76,12 +77,24 @@ class VoltageReader(object):
 
     def __iter__(self):
         return self.stepper()
+    
+    def _read_frame_time(self, fnum):
+        t = self._frametimes[fnum]
+        
+        if t is None:
+            with h5py.File(self._files[fnum], 'r') as f:
+                t = read_frame_time(f)
+            
+            self._frametimes[fnum] = t
+        
+        return t
 
-    def _read_file_frames(self, filename, frameslice, sampleslice):
-        with h5py.File(filename, 'r') as f:
+    def _read_file_frames(self, fnum, frameslice, sampleslice):
+        with h5py.File(self._files[fnum], 'r') as f:
             vlt = read_voltage(f, (frameslice, sampleslice))
-            t = read_frame_time(f, frameslice)
-            r = self.r[sampleslice]
+        
+        t = self._read_frame_time(fnum)[frameslice]
+        r = self.r[sampleslice]
 
         data = pandas.DataFrame(vlt, t, r)
         data.index.name = 'time'
@@ -91,7 +104,7 @@ class VoltageReader(object):
     def _read_frames(self, filenumstart, framestart, filenumend, framestop, 
                      framestep, sampleslice):
         if filenumstart == filenumend:
-            return self._read_file_frames(self._files[filenumstart], 
+            return self._read_file_frames(filenumstart, 
                                           slice(framestart, framestop, framestep), 
                                           sampleslice)
         
@@ -106,7 +119,7 @@ class VoltageReader(object):
                 # step - ((nframes - strt) % step) == (strt - nframes) % step
                 strt = (strt - self._nframes[fnum]) % framestep
 
-            ret.append(self._read_file_frames(self._files[fnum], fslc, sampleslice))
+            ret.append(self._read_file_frames(fnum, fslc, sampleslice))
         return pandas.concat(ret)
 
     def byframe(self, start, stop=None, step=1, slc=slice(None)):
@@ -123,8 +136,7 @@ class VoltageReader(object):
         if tstart < self._times[0]:
             raise IndexError('start before beginning of data')
         fnumstart = find_index(self._times, tstart)
-        with h5py.File(self._files[fnumstart], 'r') as f:
-            t = read_frame_time(f)
+        t = self._read_frame_time(fnumstart)
         if tstart > t[-1]:
             raise IndexError('start after end of data')
         fstart = find_index(t, tstart)
@@ -137,8 +149,7 @@ class VoltageReader(object):
                 raise IndexError('end before beginning of data')
             fnumstop = find_index(self._times, tend) # file which INCLUDES tend
             if fnumstop != fnumstart:
-                with h5py.File(self._files[fnumstop], 'r') as f:
-                    t = read_frame_time(f)
+                t = self._read_frame_time(fnumstop)
             if tend > t[-1]:
                 raise IndexError('end after end of data')
             fstop = find_index(t, tend) + 1 # add 1 because want pulse at tend to be included
