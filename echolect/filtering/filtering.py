@@ -6,7 +6,7 @@ from util import apply_to_2d, convslice, downsample, pow2, time_filters, upsampl
 
 # ******** Filter functions ********
 
-def measure_filters(h, M, xdtype=np.complex_, number=100, disp=True, meas_all=True):
+def measure_filters(h, M, xdtype=np.complex_, number=100, disp=True, meas_all=False):
     flist = [filters.CythonConv(h, M, xdtype),
              filters.NumbaConv(h, M, xdtype),
              filters.NumbaFFTW(h, M, xdtype, powerof2=True)]
@@ -83,7 +83,7 @@ def doppler_coefs(h, f):
 
 # ******** Doppler bank functions ********
 
-def measure_doppler_banks(h, N, M, xdtype=np.complex_, number=100, disp=True, meas_all=True):
+def measure_doppler_banks(h, N, M, xdtype=np.complex_, number=100, disp=True, meas_all=False):
     flist = [dopplerbanks.ShiftConvFFT(h, N, M, xdtype, powerof2=True),
              dopplerbanks.SweepSpectraCython(h, N, M, xdtype),
              dopplerbanks.SweepSpectraNumba(h, N, M, xdtype),
