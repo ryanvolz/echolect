@@ -78,22 +78,26 @@ class VoltageReader(object):
     def __iter__(self):
         return self.stepper()
     
-    def _read_frame_time(self, fnum):
+    def _read_frame_time(self, fnum, cache=False, f=None):
         t = self._frametimes[fnum]
         
         if t is None:
-            with h5py.File(self._files[fnum], 'r') as f:
+            if f is None:
+                with h5py.File(self._files[fnum], 'r') as f:
+                    t = read_frame_time(f)
+            else:
                 t = read_frame_time(f)
             
-            self._frametimes[fnum] = t
+            if cache:
+                self._frametimes[fnum] = t
         
         return t
 
     def _read_file_frames(self, fnum, frameslice, sampleslice):
         with h5py.File(self._files[fnum], 'r') as f:
             vlt = read_voltage(f, (frameslice, sampleslice))
-        
-        t = self._read_frame_time(fnum)[frameslice]
+            t = self._read_frame_time(fnum, cache=False, f=f)[frameslice]
+
         r = self.r[sampleslice]
 
         data = pandas.DataFrame(vlt, t, r)
@@ -136,7 +140,7 @@ class VoltageReader(object):
         if tstart < self._times[0]:
             raise IndexError('start before beginning of data')
         fnumstart = find_index(self._times, tstart)
-        t = self._read_frame_time(fnumstart)
+        t = self._read_frame_time(fnumstart, cache=True)
         if tstart > t[-1]:
             raise IndexError('start after end of data')
         fstart = find_index(t, tstart)
@@ -149,7 +153,7 @@ class VoltageReader(object):
                 raise IndexError('end before beginning of data')
             fnumstop = find_index(self._times, tend) # file which INCLUDES tend
             if fnumstop != fnumstart:
-                t = self._read_frame_time(fnumstop)
+                t = self._read_frame_time(fnumstop, cache=True)
             if tend > t[-1]:
                 raise IndexError('end after end of data')
             fstop = find_index(t, tend) + 1 # add 1 because want pulse at tend to be included
