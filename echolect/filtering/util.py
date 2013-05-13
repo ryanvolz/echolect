@@ -16,26 +16,34 @@ def zero_pad(x, n):
         y[..., 0:m] = x
         return y
 
-def upsample(x, n, phase=0):
-    """Upsample x by inserting n-1 zeros between samples along the first axis."""
+def upsample(x, n, axis=0, phase=0):
+    """Upsample x by inserting n-1 zeros between samples along the specified axis."""
     x = np.asarray(x)
     n = int(n)
     if phase < 0 or phase >= n:
         raise ValueError('phase must be between 0 and n-1')
 
-    y = np.zeros((n*x.shape[0],) + x.shape[1:], x.dtype)
-    y[phase::n, ...] = x
+    upshape = list(x.shape)
+    upshape[axis] = n*x.shape[axis]
+    y = np.zeros(upshape, x.dtype)
+    
+    idx = [slice(None)]*y.ndim
+    idx[axis] = slice(phase, None, n)
+    y[idx] = x
 
     return y
 
-def downsample(x, n, phase=0):
-    """Downsample x by keeping every nth sample along the first axis, starting with phase."""
+def downsample(x, n, axis=0, phase=0):
+    """Downsample x by keeping every nth sample along the specified axis, starting with phase."""
     x = np.asarray(x)
     n = int(n)
     if phase < 0 or phase >= n:
         raise ValueError('phase must be between 0 and n-1')
+    
+    idx = [slice(None)]*x.ndim
+    idx[axis] = slice(phase, None, n)
 
-    return x[phase::n, ...]
+    return x[idx]
 
 def time_filters(flist, x, number=100):
     times = []
