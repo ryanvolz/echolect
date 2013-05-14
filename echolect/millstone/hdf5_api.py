@@ -78,6 +78,17 @@ class VoltageReader(object):
     def __iter__(self):
         return self.stepper()
     
+    def _findbytime(self, t):
+        if t < self._times[0]:
+            raise IndexError('t before beginning of data')
+        filenum = find_index(self._times, t)
+        times = self._read_frame_time(filenum, cache=True)
+        if t > times[-1]:
+            raise IndexError('t after end of data')
+        framenum = find_index(times, t)
+        
+        return filenum, framenum
+    
     def _read_frame_time(self, fnum, cache=False, f=None):
         t = self._frametimes[fnum]
         
@@ -137,26 +148,14 @@ class VoltageReader(object):
         return self._read_frames(fnumstart, fstart, fnumstop, fstop, step, slc)
 
     def bytime(self, tstart, tend=None, slc=slice(None), nframes=1):
-        if tstart < self._times[0]:
-            raise IndexError('start before beginning of data')
-        fnumstart = find_index(self._times, tstart)
-        t = self._read_frame_time(fnumstart, cache=True)
-        if tstart > t[-1]:
-            raise IndexError('start after end of data')
-        fstart = find_index(t, tstart)
+        fnumstart, fstart = self._findbytime(tstart)
 
         if tend is None:
             fnumstop = fnumstart
             fstop = fstart + nframes
         else:
-            if tend < self._times[0]:
-                raise IndexError('end before beginning of data')
-            fnumstop = find_index(self._times, tend) # file which INCLUDES tend
-            if fnumstop != fnumstart:
-                t = self._read_frame_time(fnumstop, cache=True)
-            if tend > t[-1]:
-                raise IndexError('end after end of data')
-            fstop = find_index(t, tend) + 1 # add 1 because want pulse at tend to be included
+            fnumstop, fend = self._findbytime(tend) # file and frame which INCLUDES tend
+            fstop = fend + 1 # add 1 because we want pulse at tend to be included
 
         return self._read_frames(fnumstart, fstart, fnumstop, fstop, 1, slc)
 
@@ -167,6 +166,11 @@ class VoltageReader(object):
         else:
             tend = self._times[0] + (pstop - 1)*self.pri
         return self.bytime(tstart, tend, slc)
+    
+    def findbytime(self, t):
+        filenum, framenum = self._findbytime(t)
+        
+        return self._framenums[filenum] + framenum
 
     def stepper(self, start=0, stop=None, step=1, slc=slice(None), block_size=1,
                 block_overlap=0, approx_read_size=1000):
