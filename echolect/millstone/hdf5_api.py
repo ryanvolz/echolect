@@ -137,8 +137,8 @@ class VoltageReader(object):
             ret.append(self._read_file_frames(fnum, fslc, sampleslice))
         return pandas.concat(ret)
 
-    def byframe(self, start, stop=None, step=1, slc=slice(None)):
-        start, stop = wrap_check_start_stop(self.shape[0], start, stop)
+    def byframe(self, start, stop=None, step=1, slc=slice(None), nframes=1):
+        start, stop = wrap_check_start_stop(self.shape[0], start, stop, nframes*step)
         
         fnumstart = find_index(self._framenums, start)
         fstart = start - self._framenums[fnumstart]
@@ -151,21 +151,23 @@ class VoltageReader(object):
         fnumstart, fstart = self._findbytime(tstart)
 
         if tend is None:
-            fnumstop = fnumstart
-            fstop = fstart + nframes
+            stop = self._framenums[fnumstart] + fstart + nframes
+            # want file of last frame to include, hence frame number stop - 1
+            fnumstop = find_index(self._framenums, stop - 1)
+            fstop = stop - self._framenums[fnumstop]
         else:
             fnumstop, fend = self._findbytime(tend) # file and frame which INCLUDES tend
             fstop = fend + 1 # add 1 because we want pulse at tend to be included
 
         return self._read_frames(fnumstart, fstart, fnumstop, fstop, 1, slc)
 
-    def bypulse(self, pstart, pstop=None, slc=slice(None)):
+    def bypulse(self, pstart, pstop=None, slc=slice(None), nframes=1):
         tstart = self._times[0] + pstart*self.pri
         if pstop is None:
-            tend = tstart
+            tend = None
         else:
             tend = self._times[0] + (pstop - 1)*self.pri
-        return self.bytime(tstart, tend, slc)
+        return self.bytime(tstart, tend, slc, nframes)
     
     def findbytime(self, t):
         filenum, framenum = self._findbytime(t)

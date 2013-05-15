@@ -33,13 +33,13 @@ def slice_by_value(arr, low=None, high=None):
 
     return slice(start, stop, 1)
 
-def wrap_check_start_stop(l, start, stop=None):
+def wrap_check_start_stop(l, start, stop=None, n=1):
     """Check start and stop indices and wrap negative indices to positive.
     
     Check that start index falls in [-l, l) and wrap negative values to l + start.
     Check that stop index falls in (-l, l] and wrap negative values to l + stop.
     
-    If stop is None, stop = start + 1 is assumed.
+    If stop is None, stop = start + n is assumed.
     For convenience, stop == 0 is assumed to be shorthand for stop == l.
     
     """
@@ -49,7 +49,7 @@ def wrap_check_start_stop(l, start, stop=None):
         start = start % l
     
     if stop is None:
-        stop = start + 1
+        stop = start + n
     elif (stop <= -l) or (stop > l):
         raise IndexError('stop index out of range')
     elif stop <= 0:
