@@ -24,7 +24,8 @@ def filter_dec(h, M, **kwargs):
 
         filt.valid = convslice(L, M, 'valid')
         filt.same = convslice(L, M, 'same')
-        filt.nodelay = convslice(L, M, 'nodelay')
+        filt.validsame = convslice(L, M, 'validsame')
+        filt.nodelay = convslice(L, M, 'validsame')
 
         doc = """Apply filter to the input.
 
@@ -37,7 +38,7 @@ def filter_dec(h, M, **kwargs):
         -------
         y : 1-D ndarray
             Full output of the filter. Use filter attributes 'valid', 'same',
-            or 'nodelay' to slice into portions of the output.
+            or 'validsame' to slice into portions of the output.
 
         """
 

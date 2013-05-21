@@ -53,12 +53,12 @@ def time_filters(flist, x, number=100):
 
     return times
 
-def convslice(L, M, mode='nodelay'):
+def convslice(L, M, mode='validsame'):
     if mode == 'valid':
         return slice(L-1, M)
     elif mode == 'same':
         return slice((L-1)//2, (L-1)//2 + M)
-    elif mode == 'nodelay':
+    elif mode == 'validsame':
         return slice(L-1, None)
     else:
         return slice(None)
