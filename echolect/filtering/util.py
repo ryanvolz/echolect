@@ -54,14 +54,27 @@ def time_filters(flist, x, number=100):
     return times
 
 def convslice(L, M, mode='validsame'):
+    smaller = min(L, M)
+    bigger = max(L, M)
     if mode == 'valid':
-        return slice(L-1, M)
+        return slice(smaller - 1, bigger)
     elif mode == 'same':
-        return slice((L-1)//2, (L-1)//2 + M)
+        return slice((smaller - 1)//2, (smaller - 1)//2 + bigger)
     elif mode == 'validsame':
-        return slice(L-1, None)
+        return slice(smaller - 1, None)
     else:
         return slice(None)
+
+def apply_filter_mode(filt, res, mode=None):
+    if mode is None or mode == 'full':
+        return res
+    
+    try:
+        slc = getattr(filt, mode)
+    except AttributeError:
+        raise ValueError('Unknown mode')
+    
+    return res[..., slc]
 
 def apply_to_2d(func1d, arr):
     if len(arr.shape) != 2:
