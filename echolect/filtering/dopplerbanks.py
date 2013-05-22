@@ -194,7 +194,10 @@ def SweepSpectraCython(h, N, M, xdtype=np.complex_):
     y = pyfftw.n_byte_align(np.zeros_like(demodpad), 16)
     fft = pyfftw.FFTW(demodpad, y, threads=_THREADS)
     
-    return libdopplerbanks.SweepSpectraCython(h, demodpad, y, fft, M, xdtype)
+    sweepspectra_cython = libdopplerbanks.SweepSpectraCython(h, demodpad, y, fft, M, xdtype)
+    sweepspectra_cython = dopplerbank_dec(h, N, M)(sweepspectra_cython)
+    
+    return sweepspectra_cython
 
 def SweepSpectraNumba(h, N, M, xdtype=np.complex_):
     # implements Doppler filter:
