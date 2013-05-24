@@ -79,7 +79,7 @@ def Conv(h, M):
 
 def CythonConv(h, M, xdtype):
     # ensure that h is C-contiguous as required by the Cython function
-    h = h.copy('C')
+    h = np.asarray(h, order='C')
     return filter_dec(h, M)(libfilters.Conv(h, M, xdtype))
 
 #@autojit
