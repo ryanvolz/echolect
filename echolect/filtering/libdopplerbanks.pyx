@@ -1,6 +1,9 @@
+#cython: embedsignature=True
+
 from __future__ import division
 cimport cython
 from cython.parallel import prange
+from cython cimport view
 import numpy as np
 cimport numpy as np
 cimport pyfftw
@@ -27,17 +30,17 @@ ctypedef fused ytype:
 @cython.boundscheck(False)
 @cython.wraparound(False)
 cdef sweepspectra(htype[::1] hrev, ytype[:, ::1] demodpad, ytype[:, ::1] y_aligned, 
-                  pyfftw.FFTW fft, Py_ssize_t M, xtype[::1] x):
+                  pyfftw.FFTW fft, Py_ssize_t step, Py_ssize_t N, Py_ssize_t M, 
+                  xtype[::1] x):
     # implements Doppler filter:
     # y[n, p] = SUM_k exp(-2*pi*j*n*(k - (L-1))/N) * (h[k] * x[p - k])
     #         = SUM_k exp(-2*pi*j*n*k/N) * (hrev[k] * x[p - (L-1) + k])
     cdef Py_ssize_t L = hrev.shape[0]
     cdef Py_ssize_t outlen = demodpad.shape[0]
-    cdef Py_ssize_t N = demodpad.shape[1]
     cdef Py_ssize_t p, p0, k, kstart, kstop
 
     cdef np.ndarray y_ndarray
-    cdef ytype[:, ::1] y
+    cdef ytype[:, ::view.contiguous] y
     cdef np.npy_intp *yshape = [N, outlen]
     if ytype is cython.floatcomplex:
         # we set every entry, so empty is ok
@@ -61,12 +64,13 @@ cdef sweepspectra(htype[::1] hrev, ytype[:, ::1] demodpad, ytype[:, ::1] y_align
             demodpad[p, k] = hrev[k]*x[p0 + k]
 
     fft.execute() # input is demodpad, output is y_aligned
-    y[:, :] = y_aligned.T
+    y[:, :] = y_aligned.T[::step, :]
 
     return y_ndarray
 
 def SweepSpectraCython(htype[::1] h, ytype[:, ::1] demodpad, ytype[:, ::1] y_aligned, 
-                       pyfftw.FFTW fft, Py_ssize_t M, xdtype):
+                       pyfftw.FFTW fft, Py_ssize_t step, Py_ssize_t N, Py_ssize_t M,
+                       xdtype):
     cdef ytype[:, ::1] demodpad2 = demodpad # work around closure scope bug which doesn't include fused arguments
     cdef ytype[:, ::1] y_aligned2 = y_aligned # work around closure scope bug which doesn't include fused arguments
 
@@ -75,15 +79,15 @@ def SweepSpectraCython(htype[::1] h, ytype[:, ::1] demodpad, ytype[:, ::1] y_ali
 
     if xdtype == np.float32:
         def sweepspectra_cython(cython.float[::1] x):
-            return sweepspectra(hrev, demodpad2, y_aligned2, fft, M, x)
+            return sweepspectra(hrev, demodpad2, y_aligned2, fft, step, N, M, x)
     elif xdtype is np.float64:
         def sweepspectra_cython(cython.double[::1] x):
-            return sweepspectra(hrev, demodpad2, y_aligned2, fft, M, x)
+            return sweepspectra(hrev, demodpad2, y_aligned2, fft, step, N, M, x)
     elif xdtype is np.complex64:
         def sweepspectra_cython(cython.floatcomplex[::1] x):
-            return sweepspectra(hrev, demodpad2, y_aligned2, fft, M, x)
+            return sweepspectra(hrev, demodpad2, y_aligned2, fft, step, N, M, x)
     elif xdtype is np.complex128:
         def sweepspectra_cython(cython.doublecomplex[::1] x):
-            return sweepspectra(hrev, demodpad2, y_aligned2, fft, M, x)
+            return sweepspectra(hrev, demodpad2, y_aligned2, fft, step, N, M, x)
 
     return sweepspectra_cython

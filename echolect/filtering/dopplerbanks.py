@@ -188,13 +188,21 @@ def SweepSpectraCython(h, N, M, xdtype=np.complex_):
     #         = SUM_k exp(-2*pi*j*n*k/N) * (s*[k] * x[p - (L-1) + k])
     L = len(h)
     outlen = M + L - 1
+    # when N < L, still need to take FFT with nfft >= L so we don't lose data
+    # then subsample to get our N points that we desire
+    step = L // N + 1
+    nfft = N*step
+    
+    # ensure that h is C-contiguous as required by our cython function
+    h = h.copy('C')
 
-    demodpad = np.zeros((outlen, N), np.result_type(xdtype, h.dtype, np.complex64))
+    demodpad = np.zeros((outlen, nfft), np.result_type(xdtype, h.dtype, np.complex64))
     demodpad = pyfftw.n_byte_align(demodpad, 16)
     y = pyfftw.n_byte_align(np.zeros_like(demodpad), 16)
     fft = pyfftw.FFTW(demodpad, y, threads=_THREADS)
     
-    sweepspectra_cython = libdopplerbanks.SweepSpectraCython(h, demodpad, y, fft, M, xdtype)
+    sweepspectra_cython = libdopplerbanks.SweepSpectraCython(h, demodpad, y, fft, 
+                                                             step, N, M, xdtype)
     sweepspectra_cython = dopplerbank_dec(h, N, M)(sweepspectra_cython)
     
     return sweepspectra_cython
@@ -205,11 +213,15 @@ def SweepSpectraNumba(h, N, M, xdtype=np.complex_):
     #         = SUM_k exp(-2*pi*j*n*k/N) * (s*[k] * x[p - (L-1) + k])
     L = len(h)
     outlen = M + L - 1
+    # when N < L, still need to take FFT with nfft >= L so we don't lose data
+    # then subsample to get our N points that we desire
+    step = L // N + 1
+    nfft = N*step
     
     hrev = h[::-1]
     xpad = np.zeros(M + 2*(L - 1), xdtype) # x[0] at xpad[L - 1]
 
-    demodpad = np.zeros((outlen, N), np.result_type(xdtype, h.dtype, np.complex64))
+    demodpad = np.zeros((outlen, nfft), np.result_type(xdtype, h.dtype, np.complex64))
     demodpad = pyfftw.n_byte_align(demodpad, 16)
     y = pyfftw.n_byte_align(np.zeros_like(demodpad), 16)
     fft = pyfftw.FFTW(demodpad, y, threads=_THREADS)
@@ -222,7 +234,7 @@ def SweepSpectraNumba(h, N, M, xdtype=np.complex_):
         for p in range(outlen):
             demodpad[p, :L] = hrev*xpad[p:(p + L)]
         fft.execute() # input is demodpad, output is y
-        yc = np.array(y.T) # we need a copy, which np.array provides
+        yc = np.array(y[:, ::step].T) # we need a copy, which np.array provides
         return yc
     
     sweepspectra_numba = dopplerbank_dec(h, N, M)(sweepspectra_numba)
@@ -235,6 +247,10 @@ def SweepSpectraStridedInput(h, N, M, xdtype=np.complex_):
     #         = SUM_k exp(-2*pi*j*n*k/N) * (s*[k] * x[p - (L-1) + k])
     L = len(h)
     outlen = M + L - 1
+    # when N < L, still need to take FFT with nfft >= L so we don't lose data
+    # then subsample to get our N points that we desire
+    step = L // N + 1
+    nfft = N*step
     
     hrev = h[::-1]
     xpad = np.zeros(M + 2*(L - 1), xdtype) # x[0] at xpad[L - 1]
@@ -242,7 +258,7 @@ def SweepSpectraStridedInput(h, N, M, xdtype=np.complex_):
                                                (outlen, L),
                                                (xpad.itemsize, xpad.itemsize))
 
-    demodpad = np.zeros((outlen, N), np.result_type(xdtype, h.dtype, np.complex64))
+    demodpad = np.zeros((outlen, nfft), np.result_type(xdtype, h.dtype, np.complex64))
     demodpad = pyfftw.n_byte_align(demodpad, 16)
     y = pyfftw.n_byte_align(np.zeros_like(demodpad), 16)
     fft = pyfftw.FFTW(demodpad, y, threads=_THREADS)
@@ -252,7 +268,7 @@ def SweepSpectraStridedInput(h, N, M, xdtype=np.complex_):
         xpad[(L - 1):outlen] = x
         np.multiply(xshifted, hrev, demodpad[:, :L])
         fft.execute() # input is demodpad, output is y
-        yc = np.array(y.T) # we need a copy, which np.array provides
+        yc = np.array(y[:, ::step].T) # we need a copy, which np.array provides
         return yc
 
     return sweepspectra_strided_input

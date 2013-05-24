@@ -34,9 +34,9 @@ def check_doppler_banks(L, M, N, hdtype, xdtype):
         np.testing.assert_array_almost_equal(y0, y1, err_msg=err_msg.format(filt.func_name, reffilt.func_name))
 
 def test_doppler_banks():
-    Ls = (16, 16, 16, 10, 10)
-    Ms = (16, 10, 50, 64, 64)
-    Ns = (16, 16, 16, 64, 128)
+    Ls = (16, 16, 16, 16, 10, 10)
+    Ms = (16, 10, 50, 50, 64, 64)
+    Ns = (16, 16, 16, 10, 64, 128)
     hdtypes = (np.float64, np.complex64)
     xdtypes = (np.float64, np.complex64)
     

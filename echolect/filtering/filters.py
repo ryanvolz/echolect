@@ -25,7 +25,6 @@ def filter_dec(h, M, **kwargs):
         filt.valid = convslice(L, M, 'valid')
         filt.same = convslice(L, M, 'same')
         filt.validsame = convslice(L, M, 'validsame')
-        filt.nodelay = convslice(L, M, 'validsame')
 
         doc = """Apply filter to the input.
 
@@ -62,6 +61,8 @@ def Conv(h, M):
     return conv
 
 def CythonConv(h, M, xdtype):
+    # ensure that h is C-contiguous as required by the Cython function
+    h = h.copy('C')
     return filter_dec(h, M)(libfilters.Conv(h, M, xdtype))
 
 #@autojit
