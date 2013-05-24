@@ -2,7 +2,8 @@ import numpy as np
 
 import filters
 import dopplerbanks
-from util import apply_to_2d, convslice, downsample, pow2, time_filters, upsample, zero_pad
+from util import (apply_to_2d, apply_filter_mode, convslice, downsample, 
+                  pow2, time_filters, upsample, zero_pad)
 
 # ******** Filter functions ********
 
@@ -43,12 +44,19 @@ def Filter(h, M, xdtype=np.complex_, measure=True):
 
     return filt
 
-def filter(h, x):
+def filter(h, x, mode=None):
     xshape = x.shape
     filt = Filter(h, xshape[-1], measure=False)
     if len(xshape) > 1:
-        return apply_to_2d(filt, x)
-    return filt(x)
+        res = apply_to_2d(filt, x)
+    else:
+        res = filt(x)
+    
+    if mode is None or mode == 'full':
+        return res
+    else:
+        slc = getattr(filt, mode)
+        return res[..., slc]
 
 def doppler_coefs(h, f):
     """Doppler shift the given filter h to match normalized frequency f.
@@ -154,55 +162,149 @@ def DopplerBankMax(h, N, M, xdtype=np.complex_, measure=True):
 
     return doppler_bank_max
 
-def doppler_bank(h, N, x):
+def doppler_bank(h, N, x, mode=None):
     xshape = x.shape
     filt = DopplerBank(h, N, xshape[-1], x.dtype, measure=False)
     if len(xshape) > 1:
-        return apply_to_2d(filt, x)
-    return filt(x)
+        res = apply_to_2d(filt, x)
+    else:
+        res = filt(x)
+    
+    return apply_filter_mode(filt, res, mode)
 
-def doppler_bank_max(h, N, x):
+def doppler_bank_max(h, N, x, mode=None):
     xshape = x.shape
     filt = DopplerBankMax(h, N, xshape[-1], x.dtype, measure=False)
     if len(xshape) > 1:
-        return apply_to_2d(filt, x)
-    return filt(x)
+        res = apply_to_2d(filt, x)
+    else:
+        res = filt(x)
+    
+    return (apply_filter_mode(filt, res[0], mode), res[1])
 
 
 # ******** Matched filter functions ********
 
 def matched_coefs(s):
-    return s.conj()[::-1]
+    return s.conj()[::-1].copy('C')
 
 def Matched(s, M, xdtype=np.complex_, measure=True):
     h = matched_coefs(s)
-    return Filter(h, M, xdtype, measure)
+    filt = Filter(h, M, xdtype, measure)
+    filt.nodelay = slice(filt.L - 1, None)
+    return filt
 
 def MatchedDoppler(s, N, M, xdtype=np.complex_, measure=True):
     h = matched_coefs(s)
-    return DopplerBank(h, N, M, xdtype, measure)
+    filt = DopplerBank(h, N, M, xdtype, measure)
+    filt.nodelay = slice(filt.L - 1, None)
+    return filt
 
 def MatchedDopplerMax(s, N, M, xdtype=np.complex_, measure=True):
     h = matched_coefs(s)
-    return DopplerBankMax(h, N, M, xdtype, measure)
+    filt = DopplerBankMax(h, N, M, xdtype, measure)
+    filt.nodelay = slice(filt.L - 1, None)
+    return filt
 
-def matched(s, x):
+def matched(s, x, mode=None):
     xshape = x.shape
     filt = Matched(s, xshape[-1], x.dtype, measure=False)
     if len(xshape) > 1:
-        return apply_to_2d(filt, x)
-    return filt(x)
+        res = apply_to_2d(filt, x)
+    else:
+        res = filt(x)
+    
+    return apply_filter_mode(filt, res, mode)
 
-def matched_doppler(s, N, x):
+def matched_doppler(s, N, x, mode=None):
     xshape = x.shape
     filt = MatchedDoppler(s, N, xshape[-1], x.dtype, measure=False)
     if len(xshape) > 1:
-        return apply_to_2d(filt, x)
-    return filt(x)
+        res = apply_to_2d(filt, x)
+    else:
+        res = filt(x)
+    
+    return apply_filter_mode(filt, res, mode)
 
-def matched_doppler_max(s, N, x):
+def matched_doppler_max(s, N, x, mode=None):
     xshape = x.shape
     filt = MatchedDopplerMax(s, N, xshape[-1], x.dtype, measure=False)
     if len(xshape) > 1:
-        return apply_to_2d(filt, x)
-    return filt(x)
+        res = apply_to_2d(filt, x)
+    else:
+        res = filt(x)
+    
+    return (apply_filter_mode(filt, res[0], mode), res[1])
+
+
+# ******** Inverse filter functions ********
+
+def inverse_coefs(s, ntaps):
+    S = np.fft.fft(s, n=ntaps)
+    # q is the output we want from the impulse filter, a delta with proper delay
+    q = np.zeros(ntaps, dtype=s.dtype)
+    # delay = (ntaps + len(s) - 1)//2 places delta in middle of output with 
+    # outlen = ntaps + len(s) - 1
+    # this ensures that the non-circular convolution that we use to apply this filter
+    # gives a result as close as possible to the ideal inverse circular convolution
+    q[(ntaps + len(s) - 1)//2] = 1
+    Q = np.fft.fft(q)
+    H = Q/S
+    h = np.fft.ifft(H)
+    if not np.iscomplexobj(s):
+        h = h.real.copy('C') # copy needed so h is C-contiguous
+    return h
+
+def Inverse(s, ntaps, M, xdtype=np.complex_, measure=True):
+    h = inverse_coefs(s, ntaps)
+    filt = Filter(h, M, xdtype, measure)
+    delay = (filt.L + len(s) - 1)//2
+    # using delay of the ideal output we defined in inverse_coefs
+    filt.nodelay = slice(delay, None)
+    return filt
+
+def InverseDoppler(s, ntaps, N, M, xdtype=np.complex_, measure=True):
+    h = inverse_coefs(s, ntaps)
+    filt = DopplerBank(h, N, M, xdtype, measure)
+    delay = (filt.L + len(s) - 1)//2
+    # using delay of the ideal output we defined in inverse_coefs
+    filt.nodelay = slice(delay, None)
+    return filt
+
+def InverseDopplerMax(s, ntaps, N, M, xdtype=np.complex_, measure=True):
+    h = inverse_coefs(s, ntaps)
+    filt = DopplerBankMax(h, N, M, xdtype, measure)
+    delay = (filt.L + len(s) - 1)//2
+    # using delay of the ideal output we defined in inverse_coefs
+    filt.nodelay = slice(delay, None)
+    return filt
+
+def inverse(s, ntaps, x, mode=None):
+    xshape = x.shape
+    filt = Inverse(s, ntaps, xshape[-1], x.dtype, measure=False)
+    if len(xshape) > 1:
+        res = apply_to_2d(filt, x)
+    else:
+        res = filt(x)
+    
+    return apply_filter_mode(filt, res, mode)
+
+def inverse_doppler(s, ntaps, N, x, mode=None):
+    xshape = x.shape
+    filt = InverseDoppler(s, ntaps, N, xshape[-1], x.dtype, measure=False)
+    if len(xshape) > 1:
+        res = apply_to_2d(filt, x)
+    else:
+        res = filt(x)
+    
+    return apply_filter_mode(filt, res, mode)
+
+def inverse_doppler_max(s, ntaps, N, x, mode=None):
+    xshape = x.shape
+    filt = InverseDopplerMax(s, ntaps, N, xshape[-1], x.dtype, measure=False)
+    if len(xshape) > 1:
+        res = apply_to_2d(filt, x)
+    else:
+        res = filt(x)
+    
+    return (apply_filter_mode(filt, res[0], mode), res[1])
