@@ -1,10 +1,10 @@
 Bottleneck
-glumpy
+glumpy>=0.2
 h5py
 matplotlib
 numba
 numpy
 pandas
-pyFFTW
+pyFFTW==0.8.2
 scipy
 tables
