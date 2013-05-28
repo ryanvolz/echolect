@@ -94,7 +94,7 @@ def ShiftConvFFT(h, N, M, xdtype=np.complex_, powerof2=True):
         np.multiply(X, H, Y)
         ifft.execute() # input is Y, output is y
 
-        yc = np.array(y)[:, :outlen] # need a copy, which np.array provides
+        yc = np.array(y[:, :outlen]) # need a copy, which np.array provides
         return yc
 
     return shiftconv_fft
@@ -152,7 +152,7 @@ def ShiftConvNumbaFFT(h, N, M, xdtype=np.complex_, powerof2=True):
         Y[:, :] = X*H # need expression optimized by numba but that writes into Y
         ifft.execute() # input is Y, output is y
 
-        yc = np.array(y)[:, :outlen] # need a copy, which np.array provides
+        yc = np.array(y[:, :outlen]) # need a copy, which np.array provides
         return yc
     
     shiftconv_numba_fft = dopplerbank_dec(h, N, M, nfft=nfft, H=H)(shiftconv_numba_fft)
