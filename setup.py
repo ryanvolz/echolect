@@ -17,7 +17,10 @@
 # You should have received a copy of the GNU General Public License
 # along with echolect.  If not, see <http://www.gnu.org/licenses/>.
 
+import os
 import sys
+import copy
+import itertools
 from distutils.core import setup, Extension, Command
 import numpy as np
 
@@ -28,10 +31,31 @@ except ImportError:
 else:
     cython = True
 
-cython_sources = [('echolect/filtering/libfilters.pyx',
-                            [np.get_include()]),
-                  ('echolect/filtering/libdopplerbanks.pyx',
-                            [np.get_include(), 'echolect/include'])]
+ext_modules = []
+
+# cython extension modules, where it is assumed that all '.c' files have a corresponding
+# '.pyx' file from which it is compiled using cython
+cython_modules = [Extension('echolect.filtering.libfilters',
+                            sources=['echolect/filtering/libfilters.c'],
+                            include_dirs=[np.get_include()],
+                            extra_compile_args=['-O3', '-ffast-math', '-fopenmp'],
+                            extra_link_args=['-O3', '-ffast-math', '-fopenmp']),
+                  Extension('echolect.filtering.libdopplerbanks',
+                            sources=['echolect/filtering/libdopplerbanks.c'],
+                            include_dirs=[np.get_include(), 'echolect/include'],
+                            extra_compile_args=['-O3', '-ffast-math', '-fopenmp'],
+                            extra_link_args=['-O3', '-ffast-math', '-fopenmp'])]
+# add C-files from cython modules to extension modules
+ext_modules.extend(cython_modules)
+
+cython_extensions = []
+for c_mod in cython_modules:
+    cython_ext = copy.copy(c_mod)
+    cython_ext.sources = [root + '.pyx' for root, ext 
+                          in map(os.path.splitext, c_mod.sources) 
+                          if ext.lower() == '.c']
+    
+    cython_extensions.append(cython_ext)
 
 cmdclass = dict()
 
@@ -54,30 +78,20 @@ if cython:
         def run(self):
             results = CompilationResultSet()
             
-            for source, include_path in cython_sources:
-                res = compile([source],
-                              include_path=include_path,
+            for cython_ext in cython_extensions:                
+                res = compile(cython_ext.sources,
+                              include_path=cython_ext.include_dirs,
                               verbose=True,
                               timestamps=self.timestamps,
                               annotate=self.annotate)
                 if res:
-                    results.add(source, res.values()[0])
+                    results.update(res)
+                    results.num_errors += res.num_errors
             
             if results.num_errors > 0:
                 sys.stderr.write('Cython compilation failed!')
 
     cmdclass['cython'] = CythonCommand
-
-ext_modules = [Extension('echolect.filtering.libfilters',
-                         sources=['echolect/filtering/libfilters.c'],
-                         include_dirs=[np.get_include()],
-                         extra_compile_args=['-O3', '-ffast-math', '-fopenmp'],
-                         extra_link_args=['-O3', '-ffast-math', '-fopenmp']),
-               Extension('echolect.filtering.libdopplerbanks',
-                         sources=['echolect/filtering/libdopplerbanks.c'],
-                         include_dirs=[np.get_include(), 'echolect/include'],
-                         extra_compile_args=['-O3', '-ffast-math', '-fopenmp'],
-                         extra_link_args=['-O3', '-ffast-math', '-fopenmp'])]
 
 setup(name='echolect',
       version='0.1-dev',
@@ -105,6 +119,5 @@ setup(name='echolect',
                 'echolect.sim',
                 'echolect.tools'],
       package_data={'echolect': ['include/*']},
-      data_files=[('', list(zip(*cython_sources)[0]))],
       cmdclass=cmdclass,
       ext_modules=ext_modules)

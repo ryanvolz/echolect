@@ -1,3 +1,5 @@
+include echolect/filtering/libfilters.pyx
+include echolect/filtering/libdopplerbanks.pyx
 include LICENSE
 include optional_requirements.txt
 include requirements.txt
