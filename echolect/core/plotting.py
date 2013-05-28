@@ -19,7 +19,7 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
-import subsectime
+from . import subsectime
 
 __all__ = ['rtiplot', 'implot', 'arrayticks', 'timeticks_helper', 
            'timeticks_array', 'timeticks']

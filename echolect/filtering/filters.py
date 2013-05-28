@@ -24,8 +24,8 @@ import numba
 from numba.decorators import jit, autojit
 import multiprocessing
 
-import libfilters
-from util import convslice, pow2, zero_pad
+from echolect.filtering import libfilters
+from .util import convslice, pow2, zero_pad
 
 _THREADS = multiprocessing.cpu_count()
 

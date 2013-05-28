@@ -18,6 +18,9 @@
 import numpy as np
 import timeit
 
+__all__ = ['apply_to_2d', 'apply_filter_mode', 'convslice', 'downsample',
+           'pow2', 'time_filters', 'upsample', 'zero_pad']
+
 def pow2(n):
     return 2**(int(np.ceil(np.log2(n))))
 

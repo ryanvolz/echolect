@@ -19,7 +19,7 @@ import numpy as np
 import unittest
 import itertools
 
-import filters
+from echolect.filtering import filters
 
 def get_random_uniform(shape, dtype):
     x = np.empty(shape, dtype)

@@ -1,2 +1,2 @@
-from estimators import *
-from interpolators import *
+from .estimators import *
+from .interpolators import *

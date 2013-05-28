@@ -22,7 +22,7 @@ import glob
 from echolect.core import subsectime
 from echolect.core.indexing import find_index, slice_by_value, wrap_check_start_stop
 
-import raw_parsing
+from . import raw_parsing
 
 __all__ = ['file_times', 'find_files', 'map_file_blocks',
            'read_voltage', 

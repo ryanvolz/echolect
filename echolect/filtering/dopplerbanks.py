@@ -23,9 +23,9 @@ import numba
 from numba.decorators import jit, autojit
 import multiprocessing
 
-import filters
-from util import pow2, zero_pad
-import libdopplerbanks
+from . import filters
+from .util import pow2, zero_pad
+from echolect.filtering import libdopplerbanks
 
 _THREADS = multiprocessing.cpu_count()
 

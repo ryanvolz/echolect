@@ -17,10 +17,19 @@
 
 import numpy as np
 
-import filters
-import dopplerbanks
-from util import (apply_to_2d, apply_filter_mode, convslice, downsample, 
-                  pow2, time_filters, upsample, zero_pad)
+from . import filters
+from . import dopplerbanks
+from . import util
+from .util import *
+
+__all__ = ['measure_filters', 'Filter', 'filter', 'doppler_coefs',
+           'measure_doppler_banks', 'DopplerBank', 'DopplerBankMax', 
+           'doppler_bank', 'doppler_bank_max',
+           'matched_coefs', 'Matched', 'MatchedDoppler', 'MatchedDopplerMax',
+           'matched', 'matched_doppler', 'matched_doppler_max',
+           'inverse_coefs', 'Inverse', 'InverseDoppler', 'InverseDopplerMax',
+           'inverse', 'inverse_doppler', 'inverse_doppler_max']
+__all__.extend(util.__all__)
 
 # ******** Filter functions ********
 

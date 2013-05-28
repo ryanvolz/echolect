@@ -21,7 +21,7 @@ import pandas
 
 from echolect.core import subsectime
 from echolect.core.indexing import find_index, slice_by_value, wrap_check_start_stop
-from read_hdf5 import *
+from .read_hdf5 import *
 
 __all__ = ['VoltageReader']
 

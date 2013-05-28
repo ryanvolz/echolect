@@ -19,7 +19,7 @@ import numpy as np
 import scipy as sp
 import scipy.optimize
 
-import interpolators
+from . import interpolators
 
 __all__ = ['max', 'quadratic', 'quadratic_fixedskew', 'quadratic_lstsq', 
            'bicubic_hermite', 'biquintic_hermite']

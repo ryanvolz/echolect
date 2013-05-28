@@ -20,7 +20,6 @@
 import os
 import sys
 import copy
-import itertools
 from distutils.core import setup, Extension, Command
 import numpy as np
 

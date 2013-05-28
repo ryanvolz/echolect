@@ -19,7 +19,7 @@ import numpy as np
 import unittest
 import itertools
 
-import dopplerbanks
+from echolect.filtering import dopplerbanks
 
 def get_random_uniform(shape, dtype):
     x = np.empty(shape, dtype)
