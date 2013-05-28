@@ -126,5 +126,7 @@ def Conv(htype[::1] h, Py_ssize_t M, xdtype):
     elif xdtype == np.complex128:
         def cython_conv(cython.doublecomplex[::1] x):
             return conv(h2, x)
+    else:
+        raise ValueError('xdtype must be single or double precision (complex) floating point')
 
     return cython_conv

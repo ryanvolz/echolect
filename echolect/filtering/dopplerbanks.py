@@ -212,6 +212,9 @@ def SweepSpectraCython(h, N, M, xdtype=np.complex_):
     
     # ensure that h is C-contiguous as required by the Cython function
     h = np.asarray(h, order='C')
+    
+    # make sure xdtype is a dtype object
+    xdtype = np.dtype(xdtype)
 
     demodpad = np.zeros((outlen, nfft), np.result_type(xdtype, h.dtype, np.complex64))
     demodpad = pyfftw.n_byte_align(demodpad, 16)

@@ -97,14 +97,16 @@ def SweepSpectraCython(htype[::1] h, ytype[:, ::1] demodpad, ytype[:, ::1] y_ali
     if xdtype == np.float32:
         def sweepspectra_cython(cython.float[::1] x):
             return sweepspectra(hrev, demodpad2, y_aligned2, fft, step, N, M, x)
-    elif xdtype is np.float64:
+    elif xdtype == np.float64:
         def sweepspectra_cython(cython.double[::1] x):
             return sweepspectra(hrev, demodpad2, y_aligned2, fft, step, N, M, x)
-    elif xdtype is np.complex64:
+    elif xdtype == np.complex64:
         def sweepspectra_cython(cython.floatcomplex[::1] x):
             return sweepspectra(hrev, demodpad2, y_aligned2, fft, step, N, M, x)
-    elif xdtype is np.complex128:
+    elif xdtype == np.complex128:
         def sweepspectra_cython(cython.doublecomplex[::1] x):
             return sweepspectra(hrev, demodpad2, y_aligned2, fft, step, N, M, x)
+    else:
+        raise ValueError('xdtype must be single or double precision (complex) floating point')
 
     return sweepspectra_cython
