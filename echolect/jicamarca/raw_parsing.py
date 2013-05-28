@@ -159,7 +159,7 @@ def read_basic_header(f):
     basic_header = np.fromfile(f, basic_header_t, 1)
     try:
         basic_header = basic_header.item() # make sure we got entry, convert to python types
-    except IndexError:
+    except ValueError:
         raise EOFError('End of file reached. Could not read header.')
     basic_header_dict = dict(zip(basic_header_t.names, basic_header))
     return(basic_header_dict)
@@ -176,7 +176,7 @@ def read_system_header(f):
     system_header = np.fromfile(f, system_header_t, 1)
     try:
         system_header = system_header.item() # make sure we got entry, convert to python types
-    except IndexError:
+    except ValueError:
         raise EOFError('End of file reached. Could not read header.')
     system_header_dict = dict(zip(system_header_t.names, system_header))
     return(system_header_dict)
@@ -207,7 +207,7 @@ def read_rc_header(f):
     rc_static_header = np.fromfile(f, rc_static_header_t, 1)
     try:
         rc_static_header = rc_static_header.item() # make sure we got entry, convert to python types
-    except IndexError:
+    except ValueError:
         raise EOFError('End of file reached. Could not read header.')
     rc_header = dict(zip(rc_static_header_t.names, rc_static_header))
 
@@ -235,7 +235,7 @@ def read_rc_header(f):
         try:
             num_codes = np.fromfile(f, '<u4', 1).item()
             num_bauds = np.fromfile(f, '<u4', 1).item()
-        except IndexError:
+        except ValueError:
             raise EOFError('End of file reached. Could not read header.')
         size_bauds = num_bauds//32 + 1
         codes = np.fromfile(f, '<u4', num_codes*size_bauds).astype(np.int_)
@@ -249,19 +249,19 @@ def read_rc_header(f):
     if rc_header['nL5_Function'] == RCfunction['FLIP']:
         try:
             rc_header['nFLIP1'] = np.fromfile(f, '<u4', 1).item()
-        except IndexError:
+        except ValueError:
             raise EOFError('End of file reached. Could not read header.')
 
     if rc_header['nL6_Function'] == RCfunction['FLIP']:
         try:
             rc_header['nFLIP2'] = np.fromfile(f, '<u4', 1).item()
-        except IndexError:
+        except ValueError:
             raise EOFError('End of file reached. Could not read header.')
 
     if rc_header['nL5_Function'] == RCfunction['SAMPLING']:
         try:
             rc_header['nL5_Num_Windows'] = np.fromfile(f, '<u4', 1).item()
-        except IndexError:
+        except ValueError:
             raise EOFError('End of file reached. Could not read header.')
         L5sampwin_t = np.dtype([('sL5_fH0','<f4'),
                                 ('sL5_fDH','<f4'),
@@ -276,7 +276,7 @@ def read_rc_header(f):
         try:
             num_codes = np.fromfile(f, '<u4', 1).item()
             num_bauds = np.fromfile(f, '<u4', 1).item()
-        except IndexError:
+        except ValueError:
             raise EOFError('End of file reached. Could not read header.')
         size_bauds = num_bauds//32 + 1
         codes = np.fromfile(f, '<u4', num_codes*size_bauds).astype(np.int_)
@@ -290,7 +290,7 @@ def read_rc_header(f):
     if rc_header['nL6_Function'] == RCfunction['SAMPLING']:
         try:
             rc_header['nL6_Num_Windows'] = np.fromfile(f, '<u4', 1).item()
-        except IndexError:
+        except ValueError:
             raise EOFError('End of file reached. Could not read header.')
         L6sampwin_t = np.dtype([('sL6_fH0','<f4'),
                                 ('sL6_fDH','<f4'),
@@ -305,7 +305,7 @@ def read_rc_header(f):
         try:
             num_codes = np.fromfile(f, '<u4', 1).item()
             num_bauds = np.fromfile(f, '<u4', 1).item()
-        except IndexError:
+        except ValueError:
             raise EOFError('End of file reached. Could not read header.')
         size_bauds = num_bauds//32 + 1
         codes = np.fromfile(f, '<u4', num_codes*size_bauds).astype(np.int_)
@@ -319,27 +319,27 @@ def read_rc_header(f):
     if rc_header['nDinFlags']['RC_SYNC_DELAY_ESP']:
         try:
             rc_header['nSynchro_Delay'] = np.fromfile(f, '<u4', 1).item()
-        except IndexError:
+        except ValueError:
             raise EOFError('End of file reached. Could not read header.')
     if rc_header['nDinFlags']['RC_SYNC_DIV_ESP']:
         try:
             rc_header['nExt_Synchro_Divisor'] = np.fromfile(f, '<u4', 1).item()
-        except IndexError:
+        except ValueError:
             raise EOFError('End of file reached. Could not read header.')
     if rc_header['nDinFlags']['RC_CLK_DIV_ESP']:
         try:
             rc_header['nExt_Clk_Divisor'] = np.fromfile(f, '<u4', 1).item()
-        except IndexError:
+        except ValueError:
             raise EOFError('End of file reached. Could not read header.')
     if rc_header['nDinFlags']['RC_EXT_SYNC_DELAY_ESP']:
         try:
             rc_header['nExt_Synchro_Delay'] = np.fromfile(f, '<u4', 1).item()
-        except IndexError:
+        except ValueError:
             raise EOFError('End of file reached. Could not read header.')
     if rc_header['nDinFlags']['RC_RANGE_TR_DYNAMIC']:
         try:
             range_len = np.fromfile(f, '<u4', 1).item()
-        except IndexError:
+        except ValueError:
             raise EOFError('End of file reached. Could not read header.')
         range = np.fromfile(f, '<a1', range_len + 1)
         if len(range) != (range_len + 1):
@@ -349,7 +349,7 @@ def read_rc_header(f):
     if rc_header['nDinFlags']['RC_RANGE_TXA_DYNAMIC']:
         try:
             range_len = np.fromfile(f, '<u4', 1).item()
-        except IndexError:
+        except ValueError:
             raise EOFError('End of file reached. Could not read header.')
         range = np.fromfile(f, '<a1', range_len + 1)
         if len(range) != (range_len + 1):
@@ -359,7 +359,7 @@ def read_rc_header(f):
     if rc_header['nDinFlags']['RC_RANGE_TXB_DYNAMIC']:
         try:
             range_len = np.fromfile(f, '<u4', 1).item()
-        except IndexError:
+        except ValueError:
             raise EOFError('End of file reached. Could not read header.')
         range = np.fromfile(f, '<a1', range_len + 1)
         if len(range) != (range_len + 1):
@@ -392,7 +392,7 @@ def read_proc_header(f):
     proc_static_header = np.fromfile(f, proc_static_header_t, 1)
     try:
         proc_static_header = proc_static_header.item() # make sure we got entry, convert to python types
-    except IndexError:
+    except ValueError:
         raise EOFError('End of file reached. Could not read header.')
     proc_header = dict(zip(proc_static_header_t.names, proc_static_header))
 
@@ -421,7 +421,7 @@ def read_proc_header(f):
         try:
             num_codes = np.fromfile(f, '<u4', 1).item()
             num_bauds = np.fromfile(f, '<u4', 1).item()
-        except IndexError:
+        except ValueError:
             raise EOFError('End of file reached. Could not read header.')
         size_bauds = num_bauds//32 + 1
         codes = np.fromfile(f, '<u4', num_codes*size_bauds).astype(np.int_)
@@ -435,7 +435,7 @@ def read_proc_header(f):
     if proc_header['nProcessFlags']['EXP_NAME_ESP']:
         try:
             name_len = np.fromfile(f, '<u4', 1).item()
-        except IndexError:
+        except ValueError:
             raise EOFError('End of file reached. Could not read header.')
         name = np.fromfile(f, '<a1', name_len + 1)
         if len(name) != (name_len + 1):
