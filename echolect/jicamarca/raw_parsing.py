@@ -501,9 +501,9 @@ def parse_time(header):
     return time
 
 def parse_block_shape(first_header):
-    nprofiles = first_header['nProfilesperBlock']
+    nprofiles = int(first_header['nProfilesperBlock']) # convert to smaller int if possible
     nsamples = first_header['snNSA'][0] # [0] needed b/c we want first (only) "window"
-    nchannels = first_header['nChannels']
+    nchannels = int(first_header['nChannels']) # convert to smaller int if possible
     return nprofiles, nsamples, nchannels
 
 def parse_ts(first_header):
