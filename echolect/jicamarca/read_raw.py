@@ -18,6 +18,7 @@
 import numpy as np
 import os
 import glob
+import fnmatch
 
 from echolect.core import subsectime
 from echolect.core.indexing import find_index, slice_by_value, wrap_check_start_stop
@@ -32,6 +33,14 @@ __all__ = ['file_times', 'find_files', 'map_file_blocks',
 
 def find_files(fdir, pattern='D*.r'):
     files = glob.glob(os.path.join(fdir, pattern))
+    files.sort()
+    return np.asarray(files)
+
+def find_files_recursive(fdir, pattern='D*.r'):
+    files = []
+    for dirpath, dirnames, filenames in os.walk(fdir):
+        for filename in fnmatch.filter(filenames, pattern):
+            files.append(os.path.join(dirpath, filename))
     files.sort()
     return np.asarray(files)
 
@@ -70,8 +79,14 @@ def map_file_blocks(fpath):
             except EOFError:
                 break
             
-            headers.append(h)
             time = raw_parsing.parse_time(h)
+            # check validity of header
+            # assume that if time is 0, the subsequent block was
+            # not written and hence EOF has been reached
+            if time == 0:
+                break
+            
+            headers.append(h)
             block_times.append(time)
             data_start_bytes.append(f.tell())
     
