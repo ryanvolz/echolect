@@ -25,7 +25,7 @@ from echolect.core.indexing import find_index, slice_by_value, wrap_check_start_
 
 from . import raw_parsing
 
-__all__ = ['file_times', 'find_files', 'map_file_blocks',
+__all__ = ['file_times', 'find_files', 'find_files_recursive', 'map_file_blocks',
            'read_voltage', 
            'voltage_reader']
            
