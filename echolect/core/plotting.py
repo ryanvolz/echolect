@@ -17,20 +17,20 @@
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt
-from mpl_toolkits.axes_grid1 import make_axes_locatable
+from mpl_toolkits import axes_grid1
 
 from . import subsectime
 
-__all__ = ['rtiplot', 'implot', 'arrayticks', 'timeticks_helper', 
-           'timeticks_array', 'timeticks']
+__all__ = ['rtiplot', 'implot', 'colorbar', 'make_axes_fixed', 
+           'arrayticks', 'timeticks_helper', 'timeticks_array', 'timeticks']
 
 def rtiplot(z, t, r, **kwargs):
     kwargs['xistime'] = True
     return implot(z, t, r, **kwargs)
 
-def implot(z, x, y, xlabel=None, ylabel=None, title=None, colorbar=True,
+def implot(z, x, y, xlabel=None, ylabel=None, title=None, cbar=True,
            clabel=None, exact_ticks=True, xbins=10, ybins=10,
-           xistime=False, yistime=False, **kwargs):
+           xistime=False, yistime=False, ax=None, **kwargs):
     imshowkwargs = dict(aspect='auto', interpolation='nearest', origin='lower')
 
     if exact_ticks:
@@ -49,17 +49,12 @@ def implot(z, x, y, xlabel=None, ylabel=None, title=None, colorbar=True,
     imshowkwargs.update(extent=extent)
     imshowkwargs.update(kwargs)
 
-    img = plt.imshow(z.T, **imshowkwargs)
-    ax = img.axes
+    if ax is None:
+        ax = plt.gca()
+    img = ax.imshow(z.T, **imshowkwargs)
 
-    if colorbar:
-        # add a colorbar that resizes with the image
-        div = make_axes_locatable(ax)
-        cax = div.append_axes("right", size=.125, pad=.1)
-        cb = plt.colorbar(img, cax=cax)
-        img.set_colorbar(cb, cax)
-        if clabel is not None:
-            cb.set_label(clabel)
+    if cbar:
+        cb = colorbar(img, position='right', size=0.125, pad=0.1, label=clabel)
 
     # title and labels
     if title is not None:
@@ -85,12 +80,63 @@ def implot(z, x, y, xlabel=None, ylabel=None, title=None, colorbar=True,
         if yistime:
             timeticks(ax.yaxis, y[0], y[-1], ybins)
 
-    # make current axes ax (to make sure it is not cax)
-    plt.sca(ax)
-    # tight layout to make sure all labels fit, etc.
-    plt.tight_layout()
-
     return img
+
+def colorbar(img, position, size, pad=None, label=None, **kwargs):
+    # add a colorbar that resizes with the image
+    ax = img.axes
+    fig = ax.get_figure()
+    # delete any existing colorbar
+    if hasattr(ax, 'colorbar'):
+        oldcb, oldcax, oldloc = ax.colorbar
+        # delete from figure
+        fig.delaxes(oldcax)
+        # restore axes to original divider
+        ax.set_axes_locator(oldloc)
+        del ax.colorbar, oldcb, oldcax, oldloc
+        
+    loc = ax.get_axes_locator()
+    if loc is None:
+        # create axes divider that follows size of original axes (the subplot's area)
+        # colorbar will be added to this divider to fit in the original axes area
+        axdiv = axes_grid1.axes_divider.AxesDivider(ax)
+    else:
+        origdiv = loc._axes_divider
+        # make new axes divider to add colorbar to (since we can't presume to modify original)
+        hsize = axes_grid1.Size.AddList(origdiv.get_horizontal()[loc._nx:loc._nx1])
+        vsize = axes_grid1.Size.AddList(origdiv.get_vertical()[loc._ny:loc._ny1])
+        axdiv = axes_grid1.axes_divider.AxesDivider(ax,
+                                                    xref=hsize, 
+                                                    yref=vsize)
+        axdiv.set_aspect(origdiv.get_aspect())
+        axdiv.set_anchor(origdiv.get_anchor())
+        axdiv.set_locator(loc)
+    # place the axes in the new divider so that it is sized to make room for colorbar
+    axloc = axdiv.new_locator(0, 0)
+    ax.set_axes_locator(axloc)
+    cax = axdiv.append_axes(position, size=size, pad=pad)
+    cb = fig.colorbar(img, cax=cax, ax=ax, **kwargs)
+    # add colorbar reference to image
+    img.set_colorbar(cb, cax)
+    # add colorbar reference to axes (so we can remove it if called again, see above)
+    ax.colorbar = (cb, cax, loc)
+    if label is not None:
+        cb.set_label(label)
+    
+    # make current axes ax (to make sure it is not cax)
+    fig.sca(ax)
+    
+    return cb
+
+def make_axes_fixed(ax, xinches, yinches):
+    div = axes_grid1.axes_divider.AxesDivider(ax,
+                                              xref=axes_grid1.Size.Fixed(xinches),
+                                              yref=axes_grid1.Size.Fixed(yinches))
+    origloc = ax.get_axes_locator()
+    if origloc is not None:
+        div.set_locator(origloc)
+    loc = div.new_locator(0, 0)
+    ax.set_axes_locator(loc)
 
 def arrayticks(axis, arr, nbins=10):
     def tickformatter(x, pos=None):
