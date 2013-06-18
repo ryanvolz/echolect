@@ -458,7 +458,11 @@ class MilliTimeDelta(SubSecTimeDelta):
     @classmethod
     def nofix(cls, secs=0, ssecs=0, factor=1000):
         if factor != 1000:
-            raise ValueError('Wrong factor for type MilliTimeDelta')
+            _warnings.warn('Converting subseconds to new factor', RuntimeWarning)
+            ssecs = (ssecs*1000) // factor
+            if (factor > 1000) and (((ssecs*1000) % factor) != 0):
+                _warnings.warn('Precision lost in conversion to new subsecond factor', 
+                               RuntimeWarning)
         return super(MilliTimeDelta, cls).nofix(secs, ssecs, 1000)
 
     @classmethod
@@ -492,7 +496,11 @@ class MicroTimeDelta(SubSecTimeDelta):
     @classmethod
     def nofix(cls, secs=0, ssecs=0, factor=1000000):
         if factor != 1000000:
-            raise ValueError('Wrong factor for type MicroTimeDelta')
+            _warnings.warn('Converting subseconds to new factor', RuntimeWarning)
+            ssecs = (ssecs*1000000) // factor
+            if (factor > 1000000) and (((ssecs*1000000) % factor) != 0):
+                _warnings.warn('Precision lost in conversion to new subsecond factor', 
+                               RuntimeWarning)
         return super(MicroTimeDelta, cls).nofix(secs, ssecs, 1000000)
 
     @classmethod
@@ -526,7 +534,11 @@ class NanoTimeDelta(SubSecTimeDelta):
     @classmethod
     def nofix(cls, secs=0, ssecs=0, factor=1000000000):
         if factor != 1000000000:
-            raise ValueError('Wrong factor for type NanoTimeDelta')
+            _warnings.warn('Converting subseconds to new factor', RuntimeWarning)
+            ssecs = (ssecs*1000000000) // factor
+            if (factor > 1000000000) and (((ssecs*1000000000) % factor) != 0):
+                _warnings.warn('Precision lost in conversion to new subsecond factor', 
+                               RuntimeWarning)
         return super(NanoTimeDelta, cls).nofix(secs,
                                                ssecs,
                                                1000000000)
@@ -562,7 +574,11 @@ class PicoTimeDelta(SubSecTimeDelta):
     @classmethod
     def nofix(cls, secs=0, ssecs=0, factor=1000000000000):
         if factor != 1000000000000:
-            raise ValueError('Wrong factor for type PicoTimeDelta')
+            _warnings.warn('Converting subseconds to new factor', RuntimeWarning)
+            ssecs = (ssecs*1000000000000) // factor
+            if (factor > 1000000000000) and (((ssecs*1000000000000) % factor) != 0):
+                _warnings.warn('Precision lost in conversion to new subsecond factor', 
+                               RuntimeWarning)
         return super(PicoTimeDelta, cls).nofix(secs,
                                                ssecs,
                                                1000000000000)
