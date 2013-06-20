@@ -39,8 +39,8 @@ def shift_ambig(shape, center_idx, scaling, ambig):
     return shifted
 
 def target_points(snr, ambig, snrthresh, maxpoints=10):
-    # snr is 2D: (delay)x(frequency), for single pulse
-    # ambig is the square of the delay-frequency pulse autocorrelation function
+    # snr is 2D: (frequency)x(delay), for single pulse
+    # ambig is the square of the (frequency)x(delay) pulse autocorrelation function
     #  with 0 delay and 0 frequency in the middle of the matrix
     # (ifftshift brings 0 delay-frequency to index 0,0)
     modsnr = snr.copy()
