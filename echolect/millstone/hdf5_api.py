@@ -20,7 +20,7 @@ import h5py
 import pandas
 
 from echolect.core import subsectime
-from echolect.core.indexing import find_index, slice_by_value, wrap_check_start_stop
+from echolect.core.indexing import find_index, slice_by_value, wrap_check_start, wrap_check_stop
 from .read_hdf5 import *
 
 __all__ = ['VoltageReader']
@@ -95,16 +95,29 @@ class VoltageReader(object):
     def __iter__(self):
         return self.stepper()
     
-    def _findbytime(self, t):
+    def _findbyframe(self, f):
+        if (f < 0) or (f > self.shape[0]):
+            raise IndexError('frame index out of range')
+        filenum = find_index(self._framenums, f)
+        framenum = f - self._framenums[filenum]
+        
+        return filenum, framenum
+    
+    def _findbytime(self, t, cache=False):
         if t < self._times[0]:
-            raise IndexError('t before beginning of data')
+            raise IndexError('time before beginning of data')
         filenum = find_index(self._times, t)
-        times = self._read_frame_time(filenum, cache=True)
+        times = self._read_frame_time(filenum, cache=cache)
         if t > times[-1]:
-            raise IndexError('t after end of data')
+            raise IndexError('time after end of data')
         framenum = find_index(times, t)
         
         return filenum, framenum
+    
+    def _findbypulse(self, p, cache=False):
+        t = self.t0 + p*self.pri
+        
+        return self._findbytime(t, cache)
     
     def _read_frame_time(self, fnum, cache=False, f=None):
         t = self._frametimes[fnum]
@@ -124,6 +137,9 @@ class VoltageReader(object):
     def _read_file_frames(self, fnum, frameslice, sampleslice):
         with h5py.File(self._files[fnum], 'r') as f:
             vlt = read_voltage(f, (frameslice, sampleslice))
+            # do not cache time access because speed savings is insignificant
+            # compared to time for reading voltage, but memory use
+            # can become a problem if we end up reading the whole data set
             t = self._read_frame_time(fnum, cache=False, f=f)[frameslice]
 
         r = self.r[sampleslice]
@@ -133,8 +149,17 @@ class VoltageReader(object):
         data.columns.name = 'range'
         return data
     
-    def _read_frames(self, filenumstart, framestart, filenumend, framestop, 
+    def _read_frames(self, filenumstart, framestart, filenumstop, framestop, 
                      framestep, sampleslice):
+        # get file number of last frame that we *include*
+        if framestop == 0:
+            # we want to end on last frame of previous file
+            filenumend = filenumstop - 1
+            framestop = self._nframes[filenumend]
+        else:
+            # end frame is same file as stop frame
+            filenumend = filenumstop
+            
         if filenumstart == filenumend:
             return self._read_file_frames(filenumstart, 
                                           slice(framestart, framestop, framestep), 
@@ -155,41 +180,69 @@ class VoltageReader(object):
         return pandas.concat(ret)
 
     def byframe(self, start, stop=None, step=1, slc=slice(None), nframes=1):
-        start, stop = wrap_check_start_stop(self.shape[0], start, stop, nframes*step)
+        start = wrap_check_start(self.shape[0], start)
+        if stop is None:
+            stop = start + step*nframes
+        else:
+            stop = wrap_check_stop(self.shape[0], stop)
         
-        fnumstart = find_index(self._framenums, start)
-        fstart = start - self._framenums[fnumstart]
-        # want file of last frame to include, hence frame number stop - 1
-        fnumstop = find_index(self._framenums, stop - 1)
-        fstop = stop - self._framenums[fnumstop]
+        fnumstart, fstart = self._findbyframe(start)
+        fnumstop, fstop = self._findbyframe(stop)
+        
         return self._read_frames(fnumstart, fstart, fnumstop, fstop, step, slc)
 
-    def bytime(self, tstart, tend=None, slc=slice(None), nframes=1):
-        fnumstart, fstart = self._findbytime(tstart)
+    def bytime(self, tstart, tend=None, step=1, slc=slice(None), nframes=1):
+        fnumstart, fstart = self._findbytime(tstart, cache=True)
 
         if tend is None:
-            stop = self._framenums[fnumstart] + fstart + nframes
-            # want file of last frame to include, hence frame number stop - 1
-            fnumstop = find_index(self._framenums, stop - 1)
-            fstop = stop - self._framenums[fnumstop]
+            stop = self._framenums[fnumstart] + fstart + step*nframes
+            fnumstop, fstop = self._findbyframe(stop)
         else:
-            fnumstop, fend = self._findbytime(tend) # file and frame which INCLUDES tend
-            fstop = fend + 1 # add 1 because we want pulse at tend to be included
+            # file and frame which INCLUDES tend
+            fnumstop, fend = self._findbytime(tend, cache=True)
+            # add 1 to get frame to stop on (so fend is included)
+            fstop = fend + 1
 
-        return self._read_frames(fnumstart, fstart, fnumstop, fstop, 1, slc)
+        return self._read_frames(fnumstart, fstart, fnumstop, fstop, step, slc)
 
-    def bypulse(self, pstart, pstop=None, slc=slice(None), nframes=1):
-        tstart = self._times[0] + pstart*self.pri
+    def bypulse(self, pstart, pstop=None, step=1, slc=slice(None), nframes=1):
+        fnumstart, fstart = self._findbypulse(pstart, cache=True)
+        
         if pstop is None:
-            tend = None
+            stop = self._framenums[fnumstart] + fstart + step*nframes
+            fnumstop, fstop = self._findbyframe(stop)
         else:
-            tend = self._times[0] + (pstop - 1)*self.pri
-        return self.bytime(tstart, tend, slc, nframes)
+            # pstop - 1 because we want to find last frame to INCLUDE
+            # (otherwise lookup would fail if pstop == (# of pulses in data) )
+            fnumstop, fend = self._findbypulse(pstop - 1, cache=True)
+            # add 1 to get frame to stop on (so fend is included)
+            fstop = fend + 1
+    
+        return self._read_frames(fnumstart, fstart, fnumstop, fstop, step, slc)
     
     def findbytime(self, t):
-        filenum, framenum = self._findbytime(t)
+        filenum, framenum = self._findbytime(t, cache=True)
         
         return self._framenums[filenum] + framenum
+    
+    def findbypulse(self, p):
+        filenum, framenum = self._findbypulse(p, cache=True)
+        
+        return self._framenums[filenum] + framenum
+    
+    def lookuptime(self, frame):
+        filenum, framenum = self._findbyframe(frame)
+        
+        t_file = self._read_frame_time(filenum, cache=True)
+        t = t_file[framenum]
+        
+        return t
+    
+    def lookuppulse(self, frame):
+        t = self.lookuptime(frame)
+        p = (t - self.t0) // self.pri
+        
+        return p
 
     def stepper(self, start=0, stop=None, step=1, slc=slice(None), block_size=1,
                 block_overlap=0, approx_read_size=1000):

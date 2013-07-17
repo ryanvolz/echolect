@@ -17,7 +17,7 @@
 
 import numpy as np
 
-__all__ = ['find_index', 'slice_by_value']
+__all__ = ['find_index', 'slice_by_value', 'wrap_check_start', 'wrap_check_stop']
 
 def find_index(arr, val):
     """Find index n into sorted array arr so that arr[n] <= val < arr[n+1].
@@ -50,28 +50,24 @@ def slice_by_value(arr, low=None, high=None):
 
     return slice(start, stop, 1)
 
-def wrap_check_start_stop(l, start, stop=None, n=1):
-    """Check start and stop indices and wrap negative indices to positive.
-    
-    Check that start index falls in [-l, l) and wrap negative values to l + start.
-    Check that stop index falls in (-l, l] and wrap negative values to l + stop.
-    
-    If stop is None, stop = start + n is assumed.
-    For convenience, stop == 0 is assumed to be shorthand for stop == l.
-    
-    """
+def wrap_check_start(l, start):
+    """Check that start index falls in [-l, l) and wrap negative values to l + start."""
     if (start < -l) or (start >= l):
         raise IndexError('start index out of range')
     if start < 0:
         start = start % l
+    return start
+
+def wrap_check_stop(l, stop):
+    """Check that stop index falls in (-l, l] and wrap negative values to l + stop.
     
-    if stop is None:
-        stop = start + n
-    elif (stop <= -l) or (stop > l):
+    For convenience, stop == 0 is assumed to be shorthand for stop == l.
+    
+    """
+    if (stop <= -l) or (stop > l):
         raise IndexError('stop index out of range')
     elif stop <= 0:
         # let stop == 0 be shorthand for stop == l,
         # i.e. including all profiles to the end
         stop = (stop - 1) % l + 1
-    
-    return start, stop
+    return stop
