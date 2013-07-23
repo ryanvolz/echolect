@@ -36,18 +36,18 @@ def map_files(fdir, ext='hdf5'):
     files.sort()
     files = np.asarray(files)
 
-    times = []
-    nframes = []
-    for fpath in files:
+    times = np.zeros(len(files), 'datetime64[ns]')
+    nframes = np.zeros(len(files), np.int64)
+    for k, fpath in enumerate(files):
         with h5py.File(fpath, 'r') as h5file:
-            time = subsectime.SubSecTime.nofix(
-                      h5file['rf_signal/data/frame_timestamp_seconds'][0],
-                      h5file['rf_signal/data/frame_timestamp_picoseconds'][0],
-                      1000000000000)
-            times.append(time)
-            nframes.append(h5file['rf_signal/data/frame_timestamp_seconds'].shape[0])
-    times = np.asarray(times)
-    nframes = np.asarray(nframes)
+            secs = h5file['rf_signal/data/frame_timestamp_seconds'][0].astype('datetime64[s]')
+            psecs = h5file['rf_signal/data/frame_timestamp_picoseconds'][0].astype('timedelta64[ps]')
+            # convert picoseconds to nanoseconds (losing precision) because
+            # a picosecond datetime64 cannot store useful times
+            nsecs = psecs.astype('timedelta64[ns]')
+            time = secs + nsecs
+            times[k] = time
+            nframes[k] = h5file['rf_signal/data/frame_timestamp_seconds'].shape[0]
 
     return files, times, nframes
 
@@ -84,36 +84,34 @@ def read_voltage(h5file, key=slice(None)):
     return vlt_o[key]
 
 def read_frame_time(h5file, slc=slice(None)):
-    t = np.vectorize(subsectime.SubSecTime.nofix)(
-                     h5file['rf_signal/data/frame_timestamp_seconds'][slc],
-                     h5file['rf_signal/data/frame_timestamp_picoseconds'][slc],
-                     1000000000000)
+    secs = h5file['rf_signal/data/frame_timestamp_seconds'][slc].astype('datetime64[s]')
+    psecs = h5file['rf_signal/data/frame_timestamp_picoseconds'][slc].astype('timedelta64[ps]')
+    # convert picoseconds to nanoseconds (losing precision) because
+    # a picosecond datetime64 cannot store useful times
+    nsecs = psecs.astype('timedelta64[ns]')
+    t = secs + nsecs
     return t
 
 def read_sample_time(h5file, slc=slice(None)):
     ns = h5file['rf_signal/data/real_samples'].shape[1]
-    ts = subsectime.SubSecTimeDelta(
-           0,
-           1000*h5file['rf_signal/metadata/signal'].attrs['signal_sampling_period'],
-           1000000000000) # signal_sampling_period is in nanoseconds
+    sigmeta = read_signal_metadata(h5file)
+    ts = sigmeta.signal_sampling_period
     return np.arange(*slc.indices(ns))*ts
 
 def read_misa_range(h5file, slc=slice(None)):
-    delay = subsectime.SubSecTimeDelta.from_seconds(
-                h5file['millstone_system_state/metadata'].attrs['misa_delay'],
-                1000000000000) # delay is in picoseconds
+    sysmeta = read_system_metadata(h5file)
+    td = sysmeta.misa_delay
     ts = read_sample_time(h5file, slc)
-    tr = (ts - delay).astype(np.float_)
+    tr = (ts - td)/np.timedelta64(1, 's') # total true delay in seconds (float)
     r = tr*constants.c/2
 
     return r
 
 def read_zenith_range(h5file, slc=slice(None)):
-    delay = subsectime.SubSecTimeDelta.from_seconds(
-               h5file['millstone_system_state/metadata'].attrs['zenith_delay'],
-               1000000000000) # delay is in picoseconds
+    sysmeta = read_system_metadata(h5file)
+    td = sysmeta.zenith_delay
     ts = read_sample_time(h5file, slc)
-    tr = (ts - delay).astype(np.float_)
+    tr = (ts - td)/np.timedelta64(1, 's') # total true delay in seconds (float)
     r = tr*constants.c/2
 
     return r
@@ -127,21 +125,34 @@ def read_zenith_power(h5file):
     return p[:]
 
 def read_power_time(h5file):
-    t = np.vectorize(subsectime.SubSecTime.nofix)(
-     h5file['millstone_system_state/data/transmitter_power/utc_second'][:],
-     h5file['millstone_system_state/data/transmitter_power/utc_picosecond'][:],
-     1000000000000)
+    secs = h5file['millstone_system_state/data/transmitter_power/utc_second'
+                  ][:].astype('datetime64[s]')
+    psecs = h5file['millstone_system_state/data/transmitter_power/utc_picosecond'
+                   ][:].astype('timedelta64[ps]')
+    # convert picoseconds to nanoseconds (losing precision) because
+    # a picosecond datetime64 cannot store useful times
+    nsecs = psecs.astype('timedelta64[ns]')
+    t = secs + nsecs
     return t
 
 def read_system_metadata(h5file):
     attrs = h5file['millstone_system_state/metadata'].attrs
+    attrs_dict = dict(attrs)
+    # delay and delay_error are floats in seconds, convert to timedelta with ns precision
+    for attr in ['misa_delay', 'misa_delay_error', 'zenith_delay', 'zenith_delay_error']:
+        secs = attrs[attr]
+        t = (1e9*secs).astype('timedelta64[ns]')
+        attrs_dict[attr] = t
     mdo = collections.namedtuple('MHMetadata', attrs.keys())
-    md = mdo(**attrs)
+    md = mdo(**attrs_dict)
     return md
 
 def read_signal_metadata(h5file):
-    attrs = dict(h5file['rf_signal/metadata/signal'].attrs)
-    attrs['signal_sampling_period'] = 1e-9*attrs['signal_sampling_period'] # convert from nanoseconds
+    attrs = h5file['rf_signal/metadata/signal'].attrs
+    attrs_dict = dict(attrs)
+    # signal_sampling_period is a float in nanoseconds, convert to timedelta
+    ts = attrs['signal_sampling_period'].astype('timedelta64[ns]')
+    attrs_dict['signal_sampling_period'] = ts
     mdo = collections.namedtuple('SignalMetadata', attrs.keys())
-    md = mdo(**attrs)
+    md = mdo(**attrs_dict)
     return md
