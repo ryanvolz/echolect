@@ -52,9 +52,9 @@ class VoltageReader(object):
         self.r = r
         firstfile.close()
 
-        self.ts = subsectime.PicoTimeDelta.from_seconds(self.sigmeta.signal_sampling_period)
-        self.pri = (t[1] - t[0]).make_special()
-        self.t0 = self._times[0].make_special()
+        self.ts = self.sigmeta.signal_sampling_period
+        self.pri = t[1] - t[0]
+        self.t0 = self._times[0]
 
     def __len__(self):
         return self.shape[0]
@@ -144,7 +144,9 @@ class VoltageReader(object):
 
         r = self.r[sampleslice]
 
-        data = pandas.DataFrame(vlt, t, r)
+        # millstone data comes as UTC, so define that since we can
+        t_index = pandas.DatetimeIndex(t).tz_localize('UTC')
+        data = pandas.DataFrame(vlt, t_index, r)
         data.index.name = 'time'
         data.columns.name = 'range'
         return data
@@ -240,7 +242,8 @@ class VoltageReader(object):
     
     def lookuppulse(self, frame):
         t = self.lookuptime(frame)
-        p = (t - self.t0) // self.pri
+        # timedelta64 does not define floor division, so convert to int manually
+        p = int((t - self.t0) / self.pri)
         
         return p
 
