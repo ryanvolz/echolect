@@ -18,24 +18,7 @@
 # things I wish were in numpy
 import numpy as np
 
-__all__ = ['valargcmp', 'valargmax', 'valargmin', 'itarray']
-
-def valargcmp(arr, axis=None, fun=np.argmax):
-    args = fun(arr, axis)
-    if axis is None:
-        vals = arr.ravel()[args]
-    else:
-        idx = list(np.ix_(*[xrange(k) for k in args.shape]))
-        idx.insert(axis, args)
-        vals = arr[idx].squeeze()
-    
-    return vals, args
-
-def valargmax(arr, axis=None):
-    return valargcmp(arr, axis, np.argmax)
-
-def valargmin(arr, axis=None):
-    return valargcmp(arr, axis, np.argmin)
+__all__ = ['itarray']
 
 def itarray(it, l):
     # creates a numpy array from a sequence of numpy arrays of known length
