@@ -20,7 +20,6 @@ import os
 import glob
 import fnmatch
 
-from echolect.core import subsectime
 from echolect.core.indexing import find_index, slice_by_value, wrap_check_start_stop
 
 from . import raw_parsing

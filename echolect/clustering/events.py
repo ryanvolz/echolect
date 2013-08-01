@@ -21,7 +21,6 @@ from itertools import izip
 import tables
 import pandas
 
-from echolect.core import subsectime
 from echolect.tools.valarg import valargmax
 
 __all__ = ['shift_ambig', 'target_points', 'event_list', 'Clustering']

@@ -141,7 +141,7 @@ def read_system_metadata(h5file):
     # delay and delay_error are floats in seconds, convert to timedelta with ns precision
     for attr in ['misa_delay', 'misa_delay_error', 'zenith_delay', 'zenith_delay_error']:
         secs = attrs[attr]
-        t = (1e9*secs).astype('timedelta64[ns]')
+        t = np.round(1e9*secs).astype('timedelta64[ns]')
         attrs_dict[attr] = t
     mdo = collections.namedtuple('MHMetadata', attrs.keys())
     md = mdo(**attrs_dict)
@@ -151,7 +151,7 @@ def read_signal_metadata(h5file):
     attrs = h5file['rf_signal/metadata/signal'].attrs
     attrs_dict = dict(attrs)
     # signal_sampling_period is a float in nanoseconds, convert to timedelta
-    ts = attrs['signal_sampling_period'].astype('timedelta64[ns]')
+    ts = np.round(attrs['signal_sampling_period']).astype('timedelta64[ns]')
     attrs_dict['signal_sampling_period'] = ts
     mdo = collections.namedtuple('SignalMetadata', attrs.keys())
     md = mdo(**attrs_dict)

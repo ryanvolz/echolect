@@ -18,8 +18,6 @@
 import numpy as np
 from scipy import constants
 
-from echolect.core import subsectime
-
 #*Each Jicamarca raw data file is structured as blocks of data preceded by a header.
 #*Each file starts off with a longer "first header", followed by a block of data,
 # followed by a basic header, data, basic header, etc.:
@@ -495,9 +493,9 @@ def parse_dtype(first_header):
     return raw_dtype, dtype
 
 def parse_time(header):
-    time = subsectime.SubSecTime.nofix(header['time_sec'],
-                                       header['time_msec'],
-                                       1000)
+    secs = header['time_sec'].astype('datetime64[s]')
+    msecs = header['time_msec'].astype('timedelta64[ms]')
+    time = secs + msecs
     return time
 
 def parse_block_shape(first_header):
@@ -509,7 +507,7 @@ def parse_block_shape(first_header):
 def parse_ts(first_header):
     dr_km = first_header['sfDH']
     ts_s = 2*dr_km*1e3/3e8 # Jicamarca's km units for dr assume c = 3e8 m/s
-    ts = np.vectorize(subsectime.NanoTimeDelta.from_seconds)(ts_s)
+    ts = np.round(1e9*ts_s).astype('timedelta64[ns]')
     
     if len(ts) == 1:
         return ts[0]
@@ -518,7 +516,7 @@ def parse_ts(first_header):
 def parse_ipp(first_header):
     ipp_km = first_header['fIPP']
     ipp_s = 2*ipp_km*1e3/3e8 # Jicamarca's km units for IPP assume c = 3e8 m/s
-    ipp = subsectime.NanoTimeDelta.from_seconds(ipp_s)
+    ipp = np.round(1e9*ipp_s).astype('timedelta64[ns]')
     return ipp
 
 def parse_range_index(first_header):
