@@ -15,11 +15,13 @@
 # You should have received a copy of the GNU General Public License
 # along with echolect.  If not, see <http://www.gnu.org/licenses/>.
 
+import numpy as np
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 from mpl_toolkits import axes_grid1
+import pandas
 
-from . import subsectime
+from echolect.tools.time import datetime_from_float, datetime_to_float, timestamp_strftime
 
 __all__ = ['rtiplot', 'implot', 'colorbar', 'make_axes_fixed', 
            'arrayticks', 'timeticks_helper', 'timeticks_array', 'timeticks']
@@ -32,19 +34,39 @@ def implot(z, x, y, xlabel=None, ylabel=None, title=None, cbar=True,
            clabel=None, exact_ticks=True, xbins=10, ybins=10,
            xistime=False, yistime=False, ax=None, **kwargs):
     imshowkwargs = dict(aspect='auto', interpolation='nearest', origin='lower')
+    
+    # asarray needed to convert pandas' DatetimeIndex to datetime64
+    if xistime:
+        x = np.asarray(x)
+    if yistime:
+        y = np.asarray(y)
 
     if exact_ticks:
         extent = (-0.5, x.shape[0] - 0.5,
                   -0.5, y.shape[0] - 0.5)
     else:
-        xstart = float(x[0])
-        xend = float(x[-1])
+        if xistime:
+            # use day of the given first time as epoch
+            xepoch = x[0].astype('datetime64[D]')
+            x_float = datetime_to_float(x, epoch=xepoch)
+            xstart = x_float[0]
+            xend = x_float[-1]
+        else:
+            xstart = x[0]
+            xend = x[-1]
         xstep = (xend - xstart)/(x.shape[0] - 1)
-        ystart = float(y[0])
-        yend = float(y[-1])
+        if yistime:
+            # use day of the given first time as epoch
+            yepoch = y[0].astype('datetime64[D]')
+            y_float = datetime_to_float(y, epoch=yepoch)
+            ystart = y_float[0]
+            yend = y_float[-1]
+        else:
+            ystart = y[0]
+            yend = y[-1]
         ystep = (yend - ystart)/(y.shape[0] - 1)
-        extent = (xstart - xstep/2, xend + xstep/2,
-                  ystart - ystep/2, yend + ystep/2)
+        extent = (xstart - xstep/2.0, xend + xstep/2.0,
+                  ystart - ystep/2.0, yend + ystep/2.0)
 
     imshowkwargs.update(extent=extent)
     imshowkwargs.update(kwargs)
@@ -76,9 +98,9 @@ def implot(z, x, y, xlabel=None, ylabel=None, title=None, cbar=True,
             arrayticks(ax.yaxis, y, ybins)
     else:
         if xistime:
-            timeticks(ax.xaxis, x[0], x[-1], xbins)
+            timeticks(ax.xaxis, x[0], x[-1], xepoch, xbins)
         if yistime:
-            timeticks(ax.yaxis, y[0], y[-1], ybins)
+            timeticks(ax.yaxis, y[0], y[-1], yepoch, ybins)
 
     return img
 
@@ -158,43 +180,58 @@ def arrayticks(axis, arr, nbins=10):
 
 def timeticks_helper(ts, te):
     # get common string to label time axis
-    tts = ts.to_datetime().timetuple()
-    tte = te.to_datetime().timetuple()
+    tts = ts.timetuple()
+    tte = te.timetuple()
     # compare year
     if tts[0] != tte[0]:
         tlabel = ''
-        sfun = lambda ttick: str(ttick)
+        sfun = lambda ttick: timestamp_strftime(
+                              ttick,
+                              '%Y-%m-%d %H:%M:%S.%f').rstrip('0').rstrip('.')
     # compare month
     elif tts[1] != tte[1]:
         tlabel = str(tts[0])
-        sfun = lambda ttick: ttick.strftime('%b %d, %H:%M:%S.%f'
-                                                      ).rstrip('0').rstrip('.')
+        sfun = lambda ttick: timestamp_strftime(
+                              ttick,
+                              '%b %d, %H:%M:%S.%f').rstrip('0').rstrip('.')
     # compare day of month
     elif tts[2] != tte[2]:
-        tlabel = ts.strftime('%B %Y')
-        sfun = lambda ttick: ttick.strftime('%d, %H:%M:%S.%f'
-                                                      ).rstrip('0').rstrip('.')
+        tlabel = timestamp_strftime(ts, '%B %Y')
+        sfun = lambda ttick: timestamp_strftime(
+                              ttick, 
+                              '%d, %H:%M:%S.%f').rstrip('0').rstrip('.')
     # compare hour
     elif tts[3] != tte[3]:
-        tlabel = ts.strftime('%b %d %Y')
-        sfun = lambda ttick: ttick.strftime('%H:%M:%S.%f'
-                                                      ).rstrip('0').rstrip('.')
+        tlabel = timestamp_strftime(ts, '%b %d %Y')
+        sfun = lambda ttick: timestamp_strftime(
+                              ttick,
+                              '%H:%M:%S.%f').rstrip('0').rstrip('.')
     # compare minute
     elif tts[4] != tte[4]:
-        tlabel = ts.strftime('%b %d %Y, %H:xx')
-        sfun = lambda ttick: ttick.strftime('%M:%S.%f').rstrip('0').rstrip('.')
+        tlabel = timestamp_strftime(ts, '%b %d %Y, %H:xx')
+        sfun = lambda ttick: timestamp_strftime(
+                              ttick,
+                              '%M:%S.%f').rstrip('0').rstrip('.')
     # compare second
     elif tts[5] != tte[5]:
-        tlabel = ts.strftime('%b %d %Y, %H:%M:xx')
-        sfun = lambda ttick: ttick.strftime('%S.%f').rstrip('0').rstrip('.')
+        tlabel = timestamp_strftime(ts, '%b %d %Y, %H:%M:xx')
+        sfun = lambda ttick: timestamp_strftime(
+                              ttick,
+                              '%S.%f').rstrip('0').rstrip('.')
     else:
-        tlabel = ts.strftime('%b %d %Y, %H:%M:%S.xx')
-        sfun = lambda ttick: ttick.strftime('%f')
+        tlabel = timestamp_strftime(ts, '%b %d %Y, %H:%M:%S.xx')
+        sfun = lambda ttick: timestamp_strftime(
+                              ttick,
+                              '%f')
 
     return tlabel, sfun
 
 def timeticks_array(axis, arr, nbins=10):
-    tlabel, sfun = timeticks_helper(arr[0], arr[-1])
+    # convert time array to pandas DatetimeIndex, 
+    # which returns Timestamp objects when indexed
+    arr_idx = pandas.DatetimeIndex(arr)
+    
+    tlabel, sfun = timeticks_helper(arr_idx[0], arr_idx[-1])
     currlabel = axis.get_label_text()
     if currlabel != '':
         tlabel = tlabel + '\n' + currlabel
@@ -203,7 +240,7 @@ def timeticks_array(axis, arr, nbins=10):
     def tickformatter(x, pos=None):
         idx = int(round(x))
         try:
-            val = arr[idx]
+            val = arr_idx[idx]
         except IndexError:
             s = ''
         else:
@@ -220,7 +257,11 @@ def timeticks_array(axis, arr, nbins=10):
         label.set_ha('left')
         label.set_rotation(-45)
 
-def timeticks(axis, ts, te, nbins=10):
+def timeticks(axis, ts, te, floatepoch, nbins=10):
+    # convert ts and te to Timestamp objects
+    ts = pandas.Timestamp(ts)
+    te = pandas.Timestamp(te)
+    
     tlabel, sfun = timeticks_helper(ts, te)
     currlabel = axis.get_label_text()
     if currlabel != '':
@@ -228,7 +269,7 @@ def timeticks(axis, ts, te, nbins=10):
     axis.set_label_text(tlabel)
 
     def tickformatter(x, pos=None):
-        ttick = subsectime.MicroTime.from_seconds(x)
+        ttick = pandas.Timestamp(datetime_from_float(x, 'ns', epoch=floatepoch).item())
         s = sfun(ttick)
         return s
 
