@@ -99,8 +99,12 @@ def implot(z, x, y, xlabel=None, ylabel=None, title=None, cbar=True,
     else:
         if xistime:
             timeticks(ax.xaxis, x[0], x[-1], xepoch, xbins)
+        else:
+            ax.xaxis.set_major_locator(mpl.ticker.MaxNLocator(nbins=xbins, integer=False))
         if yistime:
             timeticks(ax.yaxis, y[0], y[-1], yepoch, ybins)
+        else:
+            ax.yaxis.set_major_locator(mpl.ticker.MaxNLocator(nbins=ybins, integer=False))
 
     return img
 
