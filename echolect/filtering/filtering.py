@@ -267,7 +267,7 @@ def matched_doppler_max(s, N, x, mode=None):
 
 def inverse_coefs(s, ntaps):
     S = np.fft.fft(s, n=ntaps)
-    # q is the output we want from the impulse filter, a delta with proper delay
+    # q is the output we want from the inverse filter, a delta with proper delay
     q = np.zeros(ntaps, dtype=s.dtype)
     # delay = (ntaps + len(s) - 1)//2 places delta in middle of output with 
     # outlen = ntaps + len(s) - 1
