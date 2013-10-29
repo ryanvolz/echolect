@@ -493,8 +493,8 @@ def parse_dtype(first_header):
     return raw_dtype, dtype
 
 def parse_time(header):
-    secs = header['time_sec'].astype('datetime64[s]')
-    msecs = header['time_msec'].astype('timedelta64[ms]')
+    secs = np.datetime64(header['time_sec'], 's')
+    msecs = np.timedelta64(header['time_msec'], 'ms')
     time = secs + msecs
     return time
 
