@@ -20,7 +20,8 @@ import os
 import glob
 import fnmatch
 
-from echolect.core.indexing import find_index, slice_by_value, wrap_check_start_stop
+from echolect.core.indexing import (find_index, slice_by_value, wrap_check_start,
+                                    wrap_check_stop)
 
 from . import raw_parsing
 
@@ -179,7 +180,8 @@ class voltage_reader(object):
     
     def read_from_block(self, block_num, start, stop=None, step=1, 
                         chan_idx=slice(None), sample_idx=slice(None)):
-        start, stop = wrap_check_start_stop(self.nprofiles_per_block, start, stop)
+        start = wrap_check_start(self.nprofiles_per_block, start)
+        stop = wrap_check_stop(self.nprofiles_per_block, stop)
         ## change ints to lists so that we don't lose dimensions when indexing
         #if isinstance(chan_idx, int):
             #chan_idx = [chan_idx]
@@ -210,7 +212,8 @@ class voltage_reader(object):
 
     def read_voltage(self, start, stop=None, step=1, 
                      chan_idx=slice(None), sample_idx=slice(None)):
-        start, stop = wrap_check_start_stop(self.shape[0], start, stop)
+        start = wrap_check_start(self.shape[0], start)
+        stop = wrap_check_stop(self.shape[0], stop)
         ## change ints to lists so that we don't lose dimensions when indexing
         #if isinstance(chan_idx, int):
             #chan_idx = [chan_idx]
