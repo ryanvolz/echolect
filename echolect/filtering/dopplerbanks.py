@@ -41,12 +41,12 @@ def dopplerbank_dec(h, N, M, **kwargs):
 
 def ShiftConv(h, N, M):
     # implements Doppler filter:
-    # y[n, p] = SUM_k (exp(-2*pi*j*n*(k - (L-1))/N) * h[k]) * x[p - k]
+    # y[n, p] = SUM_k (exp(2*pi*j*n*(k - (L-1))/N) * h[k]) * x[p - k]
     #         = SUM_k (exp(-2*pi*j*n*k/N) * s*[k]) * x[p - (L-1) + k]
     L = len(h)
     outlen = M + L - 1
 
-    dopplermat = np.exp(-2*np.pi*1j*np.arange(N)[:, np.newaxis]*np.arange(L)/N)[:, ::-1]
+    dopplermat = np.exp(2*np.pi*1j*np.arange(N)[:, np.newaxis]*(np.arange(L) - (L - 1))/N)
     dopplermat.astype(np.result_type(h.dtype, np.complex64)) # cast to complex type with precision of h
     hbank = h*dopplermat
 
@@ -62,7 +62,7 @@ def ShiftConv(h, N, M):
 
 def ShiftConvFFT(h, N, M, xdtype=np.complex_, powerof2=True):
     # implements Doppler filter:
-    # y[n, p] = SUM_k (exp(-2*pi*j*n*(k - (L-1))/N) * h[k]) * x[p - k]
+    # y[n, p] = SUM_k (exp(2*pi*j*n*(k - (L-1))/N) * h[k]) * x[p - k]
     #         = SUM_k (exp(-2*pi*j*n*k/N) * s*[k]) * x[p - (L-1) + k]
     L = len(h)
     outlen = M + L - 1
@@ -70,7 +70,7 @@ def ShiftConvFFT(h, N, M, xdtype=np.complex_, powerof2=True):
     if powerof2:
         nfft = pow2(nfft)
 
-    dopplermat = np.exp(-2*np.pi*1j*np.arange(N)[:, np.newaxis]*np.arange(L)/N)[:, ::-1]
+    dopplermat = np.exp(2*np.pi*1j*np.arange(N)[:, np.newaxis]*(np.arange(L) - (L - 1))/N)
     dopplermat.astype(np.result_type(h.dtype, np.complex64)) # cast to complex type with precision of h
     hbank = h*dopplermat
     # speed not critical here, just use numpy fft
@@ -101,7 +101,7 @@ def ShiftConvFFT(h, N, M, xdtype=np.complex_, powerof2=True):
 
 def ShiftConvNumbaFFT(h, N, M, xdtype=np.complex_, powerof2=True):
     # implements Doppler filter:
-    # y[n, p] = SUM_k (exp(-2*pi*j*n*(k - (L-1))/N) * h[k]) * x[p - k]
+    # y[n, p] = SUM_k (exp(2*pi*j*n*(k - (L-1))/N) * h[k]) * x[p - k]
     #         = SUM_k (exp(-2*pi*j*n*k/N) * s*[k]) * x[p - (L-1) + k]
     L = len(h)
     outlen = M + L - 1
@@ -109,7 +109,7 @@ def ShiftConvNumbaFFT(h, N, M, xdtype=np.complex_, powerof2=True):
     if powerof2:
         nfft = pow2(nfft)
 
-    dopplermat = np.exp(-2*np.pi*1j*np.arange(N)[:, np.newaxis]*np.arange(L)/N)[:, ::-1]
+    dopplermat = np.exp(2*np.pi*1j*np.arange(N)[:, np.newaxis]*(np.arange(L) - (L - 1))/N)
     dopplermat.astype(np.result_type(h.dtype, np.complex64)) # cast to complex type with precision of h
     hbank = h*dopplermat
     # speed not critical here, just use numpy fft
@@ -182,7 +182,7 @@ def ShiftConvSparseMod(h, N, M):
 def ShiftConvSparse(h, N, M):
     """Doppler bank where the filter is upshift modulated before filtering."""
     # implements Doppler filter:
-    # y[n, p] = SUM_k exp(-2*pi*j*n*(k - (L-1))/N) * h[k] * x[p - k]
+    # y[n, p] = SUM_k exp(2*pi*j*n*(k - (L-1))/N) * h[k] * x[p - k]
     #         = SUM_k exp(-2*pi*j*n*k/N) * s*[k] * x[p - (L-1) + k]
     filt = ShiftConvSparseMod(h, N, M)
     L = filt.L
@@ -201,7 +201,7 @@ def ShiftConvSparse(h, N, M):
 
 def SweepSpectraCython(h, N, M, xdtype=np.complex_):
     # implements Doppler filter:
-    # y[n, p] = SUM_k exp(-2*pi*j*n*(k - (L-1))/N) * (h[k] * x[p - k])
+    # y[n, p] = SUM_k exp(2*pi*j*n*(k - (L-1))/N) * (h[k] * x[p - k])
     #         = SUM_k exp(-2*pi*j*n*k/N) * (s*[k] * x[p - (L-1) + k])
     L = len(h)
     outlen = M + L - 1
@@ -229,7 +229,7 @@ def SweepSpectraCython(h, N, M, xdtype=np.complex_):
 
 def SweepSpectraNumba(h, N, M, xdtype=np.complex_):
     # implements Doppler filter:
-    # y[n, p] = SUM_k exp(-2*pi*j*n*(k - (L-1))/N) * (h[k] * x[p - k])
+    # y[n, p] = SUM_k exp(2*pi*j*n*(k - (L-1))/N) * (h[k] * x[p - k])
     #         = SUM_k exp(-2*pi*j*n*k/N) * (s*[k] * x[p - (L-1) + k])
     L = len(h)
     outlen = M + L - 1
@@ -263,7 +263,7 @@ def SweepSpectraNumba(h, N, M, xdtype=np.complex_):
 
 def SweepSpectraStridedInput(h, N, M, xdtype=np.complex_):
     # implements Doppler filter:
-    # y[n, p] = SUM_k exp(-2*pi*j*n*(k - (L-1))/N) * (h[k] * x[p - k])
+    # y[n, p] = SUM_k exp(2*pi*j*n*(k - (L-1))/N) * (h[k] * x[p - k])
     #         = SUM_k exp(-2*pi*j*n*k/N) * (s*[k] * x[p - (L-1) + k])
     L = len(h)
     outlen = M + L - 1
@@ -325,7 +325,7 @@ def SweepSpectraStridedTapsMod(h, N, M, xdtype=np.complex_):
 def SweepSpectraStridedTaps(h, N, M, xdtype=np.complex_):
     """Doppler bank where the filter is upshift modulated before filtering."""
     # implements Doppler filter:
-    # y[n, p] = SUM_k exp(-2*pi*j*n*(k - (L-1))/N) * h[k] * x[p - k]
+    # y[n, p] = SUM_k exp(2*pi*j*n*(k - (L-1))/N) * h[k] * x[p - k]
     #         = SUM_k exp(-2*pi*j*n*k/N) * s*[k] * x[p - (L-1) + k]
     filt = SweepSpectraStridedTapsMod(h, N, M, xdtype)
     L = filt.L
