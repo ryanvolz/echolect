@@ -32,7 +32,8 @@ def rtiplot(z, t, r, **kwargs):
 
 def implot(z, x, y, xlabel=None, ylabel=None, title=None, cbar=True,
            clabel=None, exact_ticks=True, xbins=10, ybins=10,
-           xistime=False, yistime=False, ax=None, **kwargs):
+           xistime=False, yistime=False, ax=None, pixelaspect=None, 
+           **kwargs):
     imshowkwargs = dict(aspect='auto', interpolation='nearest', origin='lower')
     
     # asarray needed to convert pandas' DatetimeIndex to datetime64
@@ -67,8 +68,14 @@ def implot(z, x, y, xlabel=None, ylabel=None, title=None, cbar=True,
         ystep = (yend - ystart)/(y.shape[0] - 1)
         extent = (xstart - xstep/2.0, xend + xstep/2.0,
                   ystart - ystep/2.0, yend + ystep/2.0)
-
     imshowkwargs.update(extent=extent)
+
+    if pixelaspect is not None:
+        box_aspect = abs((extent[1] - extent[0])/(extent[3] - extent[2]))
+        arr_aspect = float(z.shape[0])/z.shape[1]
+        aspect = box_aspect/arr_aspect/pixelaspect
+        imshowkwargs.update(aspect=aspect)
+    
     imshowkwargs.update(kwargs)
 
     if ax is None:
@@ -121,31 +128,17 @@ def colorbar(img, position, size, pad=None, label=None, **kwargs):
         ax.set_axes_locator(oldloc)
         del ax.colorbar, oldcb, oldcax, oldloc
         
-    loc = ax.get_axes_locator()
-    if loc is None:
-        # create axes divider that follows size of original axes (the subplot's area)
-        # colorbar will be added to this divider to fit in the original axes area
-        axdiv = axes_grid1.axes_divider.AxesDivider(ax)
-    else:
-        origdiv = loc._axes_divider
-        # make new axes divider to add colorbar to (since we can't presume to modify original)
-        hsize = axes_grid1.Size.AddList(origdiv.get_horizontal()[loc._nx:loc._nx1])
-        vsize = axes_grid1.Size.AddList(origdiv.get_vertical()[loc._ny:loc._ny1])
-        axdiv = axes_grid1.axes_divider.AxesDivider(ax,
-                                                    xref=hsize, 
-                                                    yref=vsize)
-        axdiv.set_aspect(origdiv.get_aspect())
-        axdiv.set_anchor(origdiv.get_anchor())
-        axdiv.set_locator(loc)
-    # place the axes in the new divider so that it is sized to make room for colorbar
-    axloc = axdiv.new_locator(0, 0)
-    ax.set_axes_locator(axloc)
+    origloc = ax.get_axes_locator()
+    # make axes locatable so we can use the resulting divider to add a colorbar
+    axdiv = make_axes_locatable(ax)
+    
+    # create colorbar and its axes
     cax = axdiv.append_axes(position, size=size, pad=pad)
     cb = fig.colorbar(img, cax=cax, ax=ax, **kwargs)
     # add colorbar reference to image
     img.set_colorbar(cb, cax)
     # add colorbar reference to axes (so we can remove it if called again, see above)
-    ax.colorbar = (cb, cax, loc)
+    ax.colorbar = (cb, cax, origloc)
     if label is not None:
         cb.set_label(label)
     
@@ -155,14 +148,72 @@ def colorbar(img, position, size, pad=None, label=None, **kwargs):
     return cb
 
 def make_axes_fixed(ax, xinches, yinches):
+    # make a fixed size divider, located using existing locator if necessary
     div = axes_grid1.axes_divider.AxesDivider(ax,
                                               xref=axes_grid1.Size.Fixed(xinches),
                                               yref=axes_grid1.Size.Fixed(yinches))
     origloc = ax.get_axes_locator()
     if origloc is not None:
         div.set_locator(origloc)
+    
+    # place the axes in the new divider
     loc = div.new_locator(0, 0)
     ax.set_axes_locator(loc)
+    
+    return div
+
+def make_axes_locatable(ax):
+    # custom make_axes_locatable to fix:
+    #  - case when axes is already locatable and we want to work within 
+    #    existing divider
+    #  - case when axes has a specified aspect ratio other than 1 or auto
+
+    origloc = ax.get_axes_locator()
+    if origloc is None:
+        # create axes divider that follows size of original axes (the subplot's area)
+        
+        # default AxesDivider has relative lengths in data units,
+        # i.e. if the x-axis goes from x0 to x1, then the horizontal size of
+        # the axes has a relative length of (x1 - x0)
+        
+        # when the axes' aspect ratio is set, however, the default axes divider
+        # scales the divider size so that aspect ratio is fixed at 1 regardless
+        # of the specified aspect ratio
+        
+        # in order to make aspect ratios other than 1 work, we need to scale
+        # the relative length for the y-axis by the aspect ratio
+        
+        # set relative length for x-axis based on data units of ax
+        hsize = axes_grid1.Size.AxesX(ax)
+        
+        # set relative length for y-axis based on aspect-scaled data units
+        aspect = ax.get_aspect()
+        if aspect == 'equal':
+            aspect = 1
+        
+        if aspect == 'auto':
+            vsize = axes_grid1.Size.AxesY(ax)
+        else:
+            vsize = axes_grid1.Size.AxesY(ax, aspect=aspect)
+        
+        div = axes_grid1.axes_divider.AxesDivider(ax, xref=hsize, yref=vsize)
+    else:
+        origdiv = origloc._axes_divider
+        # make new axes divider (since we can't presume to modify original)
+        hsize = axes_grid1.Size.AddList(
+                    origdiv.get_horizontal()[origloc._nx:origloc._nx1])
+        vsize = axes_grid1.Size.AddList(
+                    origdiv.get_vertical()[origloc._ny:origloc._ny1])
+        div = axes_grid1.axes_divider.AxesDivider(ax, xref=hsize, yref=vsize)
+        div.set_aspect(origdiv.get_aspect())
+        div.set_anchor(origdiv.get_anchor())
+        div.set_locator(origloc)
+    
+    # place the axes in the new divider
+    loc = div.new_locator(0, 0)
+    ax.set_axes_locator(loc)
+    
+    return div
 
 def arrayticks(axis, arr, nbins=10):
     def tickformatter(x, pos=None):
