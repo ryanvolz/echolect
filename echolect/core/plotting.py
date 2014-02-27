@@ -30,9 +30,11 @@ def rtiplot(z, t, r, **kwargs):
     kwargs['xistime'] = True
     return implot(z, t, r, **kwargs)
 
-def implot(z, x, y, xlabel=None, ylabel=None, title=None, cbar=True,
-           clabel=None, exact_ticks=True, xbins=10, ybins=10,
-           xistime=False, yistime=False, ax=None, pixelaspect=None, 
+def implot(z, x, y, xlabel=None, ylabel=None, title=None, 
+           exact_ticks=True, xbins=10, ybins=10, 
+           xistime=False, yistime=False, 
+           cbar=True, clabel=None, cposition='right', csize=0.125, cpad=0.1, 
+           ax=None, pixelaspect=None, 
            **kwargs):
     imshowkwargs = dict(aspect='auto', interpolation='nearest', origin='lower')
     
@@ -83,7 +85,7 @@ def implot(z, x, y, xlabel=None, ylabel=None, title=None, cbar=True,
     img = ax.imshow(z.T, **imshowkwargs)
 
     if cbar:
-        cb = colorbar(img, position='right', size=0.125, pad=0.1, label=clabel)
+        cb = colorbar(img, position=cposition, size=csize, pad=cpad, label=clabel)
 
     # title and labels
     if title is not None:
