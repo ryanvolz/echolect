@@ -33,7 +33,8 @@ def rtiplot(z, t, r, **kwargs):
 def implot(z, x, y, xlabel=None, ylabel=None, title=None, 
            exact_ticks=True, xbins=10, ybins=10, 
            xistime=False, yistime=False, 
-           cbar=True, clabel=None, cposition='right', csize=0.125, cpad=0.1, 
+           cbar=True, clabel=None, cposition='right', 
+           csize=0.125, cpad=0.1, cbins=None, 
            ax=None, pixelaspect=None, 
            **kwargs):
     imshowkwargs = dict(aspect='auto', interpolation='nearest', origin='lower')
@@ -85,7 +86,8 @@ def implot(z, x, y, xlabel=None, ylabel=None, title=None,
     img = ax.imshow(z.T, **imshowkwargs)
 
     if cbar:
-        cb = colorbar(img, position=cposition, size=csize, pad=cpad, label=clabel)
+        cb = colorbar(img, position=cposition, size=csize, pad=cpad, 
+                      label=clabel, bins=cbins)
 
     # title and labels
     if title is not None:
@@ -117,7 +119,7 @@ def implot(z, x, y, xlabel=None, ylabel=None, title=None,
 
     return img
 
-def colorbar(img, position, size, pad=None, label=None, **kwargs):
+def colorbar(img, position, size, pad=None, label=None, bins=None, **kwargs):
     # add a colorbar that resizes with the image
     ax = img.axes
     fig = ax.get_figure()
@@ -143,6 +145,14 @@ def colorbar(img, position, size, pad=None, label=None, **kwargs):
     ax.colorbar = (cb, cax, origloc)
     if label is not None:
         cb.set_label(label)
+    
+    # adjust number of tick bins if desired
+    if bins is not None:
+        tickloc = mpl.ticker.MaxNLocator(nbins=bins, integer=False)
+        if position in ('bottom', 'top'):
+            cax.xaxis.set_major_locator(tickloc)
+        if position in ('left', 'right'):
+            cax.yaxis.set_major_locator(tickloc)
     
     # make current axes ax (to make sure it is not cax)
     fig.sca(ax)
