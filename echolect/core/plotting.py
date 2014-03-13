@@ -37,7 +37,7 @@ def implot(z, x, y, xlabel=None, ylabel=None, title=None,
            csize=0.125, cpad=0.1, cbins=None, 
            ax=None, pixelaspect=None, 
            **kwargs):
-    imshowkwargs = dict(aspect='auto', interpolation='nearest', origin='lower')
+    imshowkwargs = dict(aspect='auto', interpolation=None, origin='lower')
     
     # asarray needed to convert pandas' DatetimeIndex to datetime64
     if xistime:
