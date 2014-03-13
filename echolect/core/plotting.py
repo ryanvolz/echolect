@@ -119,30 +119,40 @@ def implot(z, x, y, xlabel=None, ylabel=None, title=None,
 
     return img
 
-def colorbar(img, position, size, pad=None, label=None, bins=None, **kwargs):
+def colorbar(img, position='right', size=0.125, pad=0.1, label=None, bins=None, 
+             **kwargs):
     # add a colorbar that resizes with the image
     ax = img.axes
     fig = ax.get_figure()
     # delete any existing colorbar
-    if hasattr(ax, 'colorbar'):
-        oldcb, oldcax, oldloc = ax.colorbar
-        # delete from figure
+    if img.colorbar is not None:
+        oldcb = img.colorbar
+        oldcax = oldcb.ax
+        # delete colorbar axes from figure
         fig.delaxes(oldcax)
         # restore axes to original divider
-        ax.set_axes_locator(oldloc)
-        del ax.colorbar, oldcb, oldcax, oldloc
-        
+        if hasattr(img, 'axesloc'):
+            origloc = img.axesloc
+            ax.set_axes_locator(origloc)
+        # delete colorbar reference
+        img.colorbar = None
+        del oldcb, oldcax, origloc
+    
+    # save original locator as attribute (so we can delete colorbar, see above)
     origloc = ax.get_axes_locator()
+    img.axesloc = origloc
     # make axes locatable so we can use the resulting divider to add a colorbar
     axdiv = make_axes_locatable(ax)
     
     # create colorbar and its axes
     cax = axdiv.append_axes(position, size=size, pad=pad)
-    cb = fig.colorbar(img, cax=cax, ax=ax, **kwargs)
+    if position in ('bottom', 'top'):
+        orientation = 'horizontal'
+    else:
+        orientation = 'vertical'
+    cb = fig.colorbar(img, cax=cax, ax=ax, orientation=orientation, **kwargs)
     # add colorbar reference to image
-    img.set_colorbar(cb, cax)
-    # add colorbar reference to axes (so we can remove it if called again, see above)
-    ax.colorbar = (cb, cax, origloc)
+    img.colorbar = cb
     if label is not None:
         cb.set_label(label)
     
@@ -151,7 +161,7 @@ def colorbar(img, position, size, pad=None, label=None, bins=None, **kwargs):
         tickloc = mpl.ticker.MaxNLocator(nbins=bins, integer=False)
         if position in ('bottom', 'top'):
             cax.xaxis.set_major_locator(tickloc)
-        if position in ('left', 'right'):
+        elif position in ('left', 'right'):
             cax.yaxis.set_major_locator(tickloc)
     
     # make current axes ax (to make sure it is not cax)
