@@ -159,10 +159,9 @@ def colorbar(img, position='right', size=0.125, pad=0.1, label=None, bins=None,
     # adjust number of tick bins if desired
     if bins is not None:
         tickloc = mpl.ticker.MaxNLocator(nbins=bins, integer=False)
-        if position in ('bottom', 'top'):
-            cax.xaxis.set_major_locator(tickloc)
-        elif position in ('left', 'right'):
-            cax.yaxis.set_major_locator(tickloc)
+        cb.locator = tickloc
+        # must be called whenever colorbar tick locator or formatter is changed
+        cb.update_ticks()
     
     # make current axes ax (to make sure it is not cax)
     fig.sca(ax)
