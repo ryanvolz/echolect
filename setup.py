@@ -56,7 +56,7 @@ def get_pyfftw_includes():
     
     return dirs
 
-cython_include_path = []
+cython_include_path = [] # include for cimport, different from compile include
 ext_cython = [Extension('echolect.filtering.libfilters',
                         sources=['echolect/filtering/libfilters.pyx'],
                         include_dirs=[np.get_include()],
@@ -104,7 +104,7 @@ setup(name='echolect',
       version='0.1-dev',
       maintainer='Ryan Volz',
       maintainer_email='ryan.volz@gmail.com',
-      url='http://sess.stanford.edu',
+      url='http://github.com/ryanvolz/echolect',
       description='Radar Data Processing Tools',
       long_description='',
       classifiers=['Development Status :: 3 - Alpha',
