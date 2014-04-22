@@ -15,7 +15,6 @@ from cython.parallel import prange
 from cython cimport view
 import numpy as np
 cimport numpy as np
-cimport pyfftw.pyfftw as pyfftw
 
 np.import_array() # or else we get segfaults when calling numpy C-api
 
@@ -39,7 +38,7 @@ ctypedef fused ytype:
 @cython.boundscheck(False)
 @cython.wraparound(False)
 cdef sweepspectra(htype[::1] hrev, ytype[:, ::1] demodpad, ytype[:, ::1] y_aligned, 
-                  pyfftw.FFTW fft, Py_ssize_t step, Py_ssize_t N, Py_ssize_t M, 
+                  object fft, Py_ssize_t step, Py_ssize_t N, Py_ssize_t M, 
                   xtype[::1] x):
     # implements Doppler filter:
     # y[n, p] = SUM_k exp(-2*pi*j*n*(k - (L-1))/N) * (h[k] * x[p - k])
@@ -78,7 +77,7 @@ cdef sweepspectra(htype[::1] hrev, ytype[:, ::1] demodpad, ytype[:, ::1] y_align
     return y_ndarray
 
 def SweepSpectraCython(htype[::1] h, ytype[:, ::1] demodpad, ytype[:, ::1] y_aligned, 
-                       pyfftw.FFTW fft, Py_ssize_t step, Py_ssize_t N, Py_ssize_t M,
+                       object fft, Py_ssize_t step, Py_ssize_t N, Py_ssize_t M,
                        xdtype):
     cdef ytype[:, ::1] demodpad2 = demodpad # work around closure scope bug which doesn't include fused arguments
     cdef ytype[:, ::1] y_aligned2 = y_aligned # work around closure scope bug which doesn't include fused arguments

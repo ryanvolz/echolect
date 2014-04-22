@@ -43,19 +43,6 @@ def no_cythonize(extensions, **_ignore):
 ext_modules = []
 
 # cython extension modules
-def get_pyfftw_includes():
-    import pyfftw
-    
-    dirs = []
-    pyfftw_include_dir = os.path.abspath(os.path.join(os.path.dirname(pyfftw.__file__),
-                                                      os.pardir, # equivalent to '..'
-                                                      'include'))
-    dirs.append(pyfftw_include_dir)
-    if get_platform() in ('win32', 'win-amd64'):
-        dirs.append(os.path.join(pyfftw_include_dir, 'win'))
-    
-    return dirs
-
 cython_include_path = [] # include for cimport, different from compile include
 ext_cython = [Extension('echolect.filtering.libfilters',
                         sources=['echolect/filtering/libfilters.pyx'],
@@ -64,7 +51,7 @@ ext_cython = [Extension('echolect.filtering.libfilters',
                         extra_link_args=['-O3', '-ffast-math', '-fopenmp']),
               Extension('echolect.filtering.libdopplerbanks',
                         sources=['echolect/filtering/libdopplerbanks.pyx'],
-                        include_dirs=[np.get_include()] + get_pyfftw_includes(),
+                        include_dirs=[np.get_include()],
                         extra_compile_args=['-O3', '-ffast-math', '-fopenmp'],
                         extra_link_args=['-O3', '-ffast-math', '-fopenmp'])]
 # add C-files from cython modules to extension modules
