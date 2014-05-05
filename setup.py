@@ -10,9 +10,9 @@
 #-----------------------------------------------------------------------------
 
 import os
+import codecs
 import copy
-from distutils.core import setup, Extension, Command
-from distutils.util import get_platform
+from setuptools import setup, Extension, Command, find_packages
 import numpy as np
 
 import version
@@ -76,24 +76,29 @@ ext_modules.extend(no_cythonize(ext_cython))
 # custom setup.py commands
 cmdclass = dict()
 
+# Get the long description from the relevant file
+# Use codecs.open for Python 2 compatibility
+with codecs.open('README.rst', encoding='utf-8') as f:
+    long_description = f.read()
+
 if HAS_CYTHON:
     class CythonCommand(Command):
         """Distutils command to cythonize source files."""
-        
+
         description = "compile Cython code to C code"
-        
+
         user_options = [('annotate', 'a', 'Produce a colorized HTML version of the source.'),
                         ('directive=', 'X', 'Overrides a compiler directive.'),
                         ('timestamps', 't', 'Only compile newer source files.')]
-        
+
         def initialize_options(self):
             self.annotate = False
             self.directive = ''
             self.timestamps = False
-        
+
         def finalize_options(self):
             self.directive = parse_directive_list(self.directive)
-        
+
         def run(self):
             cythonize(ext_cython,
                       include_path=cython_include_path,
@@ -103,30 +108,50 @@ if HAS_CYTHON:
 
     cmdclass['cython'] = CythonCommand
 
-setup(name='echolect',
-      version=get_version('echolect', '_version.py'),
-      maintainer='Ryan Volz',
-      maintainer_email='ryan.volz@gmail.com',
-      url='http://github.com/ryanvolz/echolect',
-      description='Radar Data Processing Tools',
-      long_description='',
-      classifiers=['Development Status :: 3 - Alpha',
-                   'Environment :: Console',
-                   'Intended Audience :: Science/Research',
-                   'License :: OSI Approved :: BSD License',
-                   'Operating System :: OS Independent',
-                   'Programming Language :: Cython',
-                   'Programming Language :: Python',
-                   'Programming Language :: Python :: 2',
-                   'Topic :: Scientific/Engineering'],
-      packages=['echolect',
-                'echolect.clustering',
-                'echolect.core',
-                'echolect.estimators',
-                'echolect.filtering',
-                'echolect.jicamarca',
-                'echolect.millstone',
-                'echolect.sim',
-                'echolect.tools'],
-      cmdclass=cmdclass,
-      ext_modules=ext_modules)
+setup(
+    name='echolect',
+    version=get_version('echolect', '_version.py'),
+    description='Radar Data Processing Tools',
+    long_description=long_description,
+
+    url='http://github.com/ryanvolz/echolect',
+
+    author='Ryan Volz',
+    author_email='ryan.volz@gmail.com',
+
+    license='BSD 3-Clause ("BSD New")',
+
+    classifiers=[
+        'Development Status :: 3 - Alpha',
+        'Environment :: Console',
+        'Intended Audience :: Science/Research',
+        'License :: OSI Approved :: BSD License',
+        'Operating System :: OS Independent',
+        'Programming Language :: Cython',
+        'Programming Language :: Python',
+        'Programming Language :: Python :: 2',
+        'Topic :: Scientific/Engineering',
+    ],
+
+    keywords='radar tools matched filter',
+
+    packages=find_packages(),
+    setup_requires=['numpy'],
+    install_requires=[
+        'Bottleneck',
+        'glumpy>=0.2',
+        'h5py',
+        'matplotlib',
+        'numba',
+        'numpy',
+        'pandas',
+        'pyFFTW',
+        'scipy',
+        'tables',
+    ],
+    extras_require={
+        'develop': ['Cython>=0.17', 'nose'],
+    },
+    cmdclass=cmdclass,
+    ext_modules=ext_modules,
+)
