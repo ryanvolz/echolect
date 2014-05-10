@@ -65,11 +65,6 @@ ext_cython = [Extension('echolect.filtering.libfilters',
 # add C-files from cython modules to extension modules
 ext_modules.extend(no_cythonize(ext_cython))
 
-# Get the long description from the relevant file
-# Use codecs.open for Python 2 compatibility
-with codecs.open('README.rst', encoding='utf-8') as f:
-    long_description = f.read()
-
 # custom setup.py commands
 cmdclass = versioneer.get_cmdclass()
 
@@ -99,6 +94,11 @@ if HAS_CYTHON:
                       compiler_directives=self.directive)
 
     cmdclass['cython'] = CythonCommand
+
+# Get the long description from the relevant file
+# Use codecs.open for Python 2 compatibility
+with codecs.open('README.rst', encoding='utf-8') as f:
+    long_description = f.read()
 
 setup(
     name='echolect',
