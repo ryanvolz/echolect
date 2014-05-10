@@ -2,4 +2,4 @@ include echolect/filtering/libfilters.pyx
 include echolect/filtering/libdopplerbanks.pyx
 include echolect/tests/test*.py
 include LICENSE
-include version.py
+include versioneer.py

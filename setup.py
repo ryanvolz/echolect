@@ -15,21 +15,13 @@ import copy
 from setuptools import setup, Extension, Command, find_packages
 import numpy as np
 
-import version
+import versioneer
 
-here = os.path.abspath(os.path.dirname(__file__))
-
-def get_version(*file_paths):
-    try:
-        # read version from git tags
-        ver = version.read_version_git()
-    except:
-        # read version from file
-        ver = version.read_version_file(here, *file_paths)
-    else:
-        # write version to file if we got it successfully from git
-        version.write_version_file(ver, here, *file_paths)
-    return ver
+versioneer.VCS = 'git'
+versioneer.versionfile_source = 'echolect/_version.py'
+versioneer.versionfile_build = 'echolect/_version.py'
+versioneer.tag_prefix = 'v' # tags are like v1.2.0
+versioneer.parentdir_prefix = 'echolect-' # dirname like 'echolect-1.2.0'
 
 try:
     from Cython.Build import cythonize
@@ -73,13 +65,13 @@ ext_cython = [Extension('echolect.filtering.libfilters',
 # add C-files from cython modules to extension modules
 ext_modules.extend(no_cythonize(ext_cython))
 
-# custom setup.py commands
-cmdclass = dict()
-
 # Get the long description from the relevant file
 # Use codecs.open for Python 2 compatibility
 with codecs.open('README.rst', encoding='utf-8') as f:
     long_description = f.read()
+
+# custom setup.py commands
+cmdclass = versioneer.get_cmdclass()
 
 if HAS_CYTHON:
     class CythonCommand(Command):
@@ -110,7 +102,7 @@ if HAS_CYTHON:
 
 setup(
     name='echolect',
-    version=get_version('echolect', '_version.py'),
+    version=versioneer.get_version(),
     description='Radar Data Processing Tools',
     long_description=long_description,
 
