@@ -134,7 +134,7 @@ setup(
         'glumpy>=0.2',
         'h5py',
         'matplotlib',
-        'numba',
+        'numba<=0.11.1',
         'numpy',
         'pandas',
         'pyFFTW',
