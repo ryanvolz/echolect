@@ -1,6 +1,4 @@
-include echolect/filtering/libfilters.pyx
-include echolect/filtering/libdopplerbanks.pyx
-include echolect/tests/test*.py
+recursive-include echolect *.pyx
 include LICENSE
 include README.rst
 include versioneer.py
