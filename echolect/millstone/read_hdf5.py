@@ -14,7 +14,6 @@ import collections
 import os
 import glob
 
-from echolect.core import subsectime
 from echolect.core.indexing import find_index, slice_by_value
 
 __all__ = ['map_files', 'find_pulse', 'voltage', 

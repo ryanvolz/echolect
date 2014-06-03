@@ -11,9 +11,13 @@ import numpy as np
 import scipy as sp
 import scipy.sparse
 import pyfftw
-import numba
-from numba.decorators import jit, autojit
 import multiprocessing
+try:
+    import numba
+except ImportError:
+    HAS_NUMBA = False
+else:
+    from numba.decorators import jit, autojit
 
 from . import filters
 from .util import pow2, zero_pad
@@ -91,65 +95,66 @@ def ShiftConvFFT(h, N, M, xdtype=np.complex_, powerof2=True):
 
     return shiftconv_fft
 
-def ShiftConvNumbaFFT(h, N, M, xdtype=np.complex_, powerof2=True):
-    # implements Doppler filter:
-    # y[n, p] = SUM_k (exp(2*pi*j*n*(k - (L-1))/N) * h[k]) * x[p - k]
-    #         = SUM_k (exp(-2*pi*j*n*k/N) * s*[k]) * x[p - (L-1) + k]
-    L = len(h)
-    outlen = M + L - 1
-    nfft = outlen
-    if powerof2:
-        nfft = pow2(nfft)
+if HAS_NUMBA:
+    def ShiftConvNumbaFFT(h, N, M, xdtype=np.complex_, powerof2=True):
+        # implements Doppler filter:
+        # y[n, p] = SUM_k (exp(2*pi*j*n*(k - (L-1))/N) * h[k]) * x[p - k]
+        #         = SUM_k (exp(-2*pi*j*n*k/N) * s*[k]) * x[p - (L-1) + k]
+        L = len(h)
+        outlen = M + L - 1
+        nfft = outlen
+        if powerof2:
+            nfft = pow2(nfft)
 
-    dopplermat = np.exp(2*np.pi*1j*np.arange(N)[:, np.newaxis]*(np.arange(L) - (L - 1))/N)
-    dopplermat.astype(np.result_type(h.dtype, np.complex64)) # cast to complex type with precision of h
-    hbank = h*dopplermat
-    # speed not critical here, just use numpy fft
-    hbankpad = zero_pad(hbank, nfft)
-    H = np.fft.fft(hbankpad) / nfft # divide by nfft b/c FFTW's ifft does not do this
+        dopplermat = np.exp(2*np.pi*1j*np.arange(N)[:, np.newaxis]*(np.arange(L) - (L - 1))/N)
+        dopplermat.astype(np.result_type(h.dtype, np.complex64)) # cast to complex type with precision of h
+        hbank = h*dopplermat
+        # speed not critical here, just use numpy fft
+        hbankpad = zero_pad(hbank, nfft)
+        H = np.fft.fft(hbankpad) / nfft # divide by nfft b/c FFTW's ifft does not do this
 
-    xcdtype = np.result_type(xdtype, np.complex64) # cast to complex type with precision of x
-    xpad = pyfftw.n_byte_align(np.zeros(nfft, xcdtype), 16)
-    X = pyfftw.n_byte_align(np.zeros(nfft, xcdtype), 16)
-    xfft = pyfftw.FFTW(xpad, X, threads=_THREADS)
+        xcdtype = np.result_type(xdtype, np.complex64) # cast to complex type with precision of x
+        xpad = pyfftw.n_byte_align(np.zeros(nfft, xcdtype), 16)
+        X = pyfftw.n_byte_align(np.zeros(nfft, xcdtype), 16)
+        xfft = pyfftw.FFTW(xpad, X, threads=_THREADS)
 
-    ydtype = np.result_type(H.dtype, xcdtype)
-    Y = pyfftw.n_byte_align_empty(H.shape, 16, ydtype)
-    y = pyfftw.n_byte_align_empty(H.shape, 16, ydtype)
-    ifft = pyfftw.FFTW(Y, y, direction='FFTW_BACKWARD', threads=_THREADS)
-    
-    xtype = numba.__getattribute__(str(np.dtype(xdtype)))
-    
-    #htype = numba.__getattribute__(str(H.dtype))
-    #xctype = numba.__getattribute__(str(X.dtype))
-    #ytype = numba.__getattribute__(str(Y.dtype))
-    #@jit(argtypes=[htype[:, ::1], xctype[::1], ytype[:, ::1], xtype[::1]])
-    #def fun(H, X, Y, x):
-        #xpad[:M] = x
-        #xfft.execute() # input is xpad, output is X
-        #Y[:, :] = H*X # need expression optimized by numba but that writes into Y
-        #ifft.execute() # input is Y, output is y
+        ydtype = np.result_type(H.dtype, xcdtype)
+        Y = pyfftw.n_byte_align_empty(H.shape, 16, ydtype)
+        y = pyfftw.n_byte_align_empty(H.shape, 16, ydtype)
+        ifft = pyfftw.FFTW(Y, y, direction='FFTW_BACKWARD', threads=_THREADS)
 
-        #yc = np.array(y)[:, :outlen] # need a copy, which np.array provides
-        #return yc
-    
-    #@dopplerbank_dec(h, N, M, nfft=nfft, H=H)
-    #def shiftconv_numba_fft(x):
-        #return fun(H, X, Y, x)
+        xtype = numba.__getattribute__(str(np.dtype(xdtype)))
 
-    @jit(argtypes=[xtype[::1]])
-    def shiftconv_numba_fft(x):
-        xpad[:M] = x
-        xfft.execute() # input is xpad, output is X
-        Y[:, :] = X*H # need expression optimized by numba but that writes into Y
-        ifft.execute() # input is Y, output is y
+        #htype = numba.__getattribute__(str(H.dtype))
+        #xctype = numba.__getattribute__(str(X.dtype))
+        #ytype = numba.__getattribute__(str(Y.dtype))
+        #@jit(argtypes=[htype[:, ::1], xctype[::1], ytype[:, ::1], xtype[::1]])
+        #def fun(H, X, Y, x):
+            #xpad[:M] = x
+            #xfft.execute() # input is xpad, output is X
+            #Y[:, :] = H*X # need expression optimized by numba but that writes into Y
+            #ifft.execute() # input is Y, output is y
 
-        yc = np.array(y[:, :outlen]) # need a copy, which np.array provides
-        return yc
-    
-    shiftconv_numba_fft = dopplerbank_dec(h, N, M, nfft=nfft, H=H)(shiftconv_numba_fft)
+            #yc = np.array(y)[:, :outlen] # need a copy, which np.array provides
+            #return yc
 
-    return shiftconv_numba_fft
+        #@dopplerbank_dec(h, N, M, nfft=nfft, H=H)
+        #def shiftconv_numba_fft(x):
+            #return fun(H, X, Y, x)
+
+        @jit(argtypes=[xtype[::1]])
+        def shiftconv_numba_fft(x):
+            xpad[:M] = x
+            xfft.execute() # input is xpad, output is X
+            Y[:, :] = X*H # need expression optimized by numba but that writes into Y
+            ifft.execute() # input is Y, output is y
+
+            yc = np.array(y[:, :outlen]) # need a copy, which np.array provides
+            return yc
+
+        shiftconv_numba_fft = dopplerbank_dec(h, N, M, nfft=nfft, H=H)(shiftconv_numba_fft)
+
+        return shiftconv_numba_fft
 
 def ShiftConvSparseMod(h, N, M):
     """Doppler bank where the signal is downshift modulated before filtering."""
@@ -219,39 +224,40 @@ def SweepSpectraCython(h, N, M, xdtype=np.complex_):
     
     return sweepspectra_cython
 
-def SweepSpectraNumba(h, N, M, xdtype=np.complex_):
-    # implements Doppler filter:
-    # y[n, p] = SUM_k exp(2*pi*j*n*(k - (L-1))/N) * (h[k] * x[p - k])
-    #         = SUM_k exp(-2*pi*j*n*k/N) * (s*[k] * x[p - (L-1) + k])
-    L = len(h)
-    outlen = M + L - 1
-    # when N < L, still need to take FFT with nfft >= L so we don't lose data
-    # then subsample to get our N points that we desire
-    step = L // N + 1
-    nfft = N*step
-    
-    hrev = h[::-1]
-    xpad = np.zeros(M + 2*(L - 1), xdtype) # x[0] at xpad[L - 1]
+if HAS_NUMBA:
+    def SweepSpectraNumba(h, N, M, xdtype=np.complex_):
+        # implements Doppler filter:
+        # y[n, p] = SUM_k exp(2*pi*j*n*(k - (L-1))/N) * (h[k] * x[p - k])
+        #         = SUM_k exp(-2*pi*j*n*k/N) * (s*[k] * x[p - (L-1) + k])
+        L = len(h)
+        outlen = M + L - 1
+        # when N < L, still need to take FFT with nfft >= L so we don't lose data
+        # then subsample to get our N points that we desire
+        step = L // N + 1
+        nfft = N*step
 
-    demodpad = np.zeros((outlen, nfft), np.result_type(xdtype, h.dtype, np.complex64))
-    demodpad = pyfftw.n_byte_align(demodpad, 16)
-    y = pyfftw.n_byte_align(np.zeros_like(demodpad), 16)
-    fft = pyfftw.FFTW(demodpad, y, threads=_THREADS)
+        hrev = h[::-1]
+        xpad = np.zeros(M + 2*(L - 1), xdtype) # x[0] at xpad[L - 1]
 
-    xtype = numba.__getattribute__(str(np.dtype(xdtype)))
-    
-    @jit(argtypes=[xtype[::1]])
-    def sweepspectra_numba(x):
-        xpad[(L - 1):outlen] = x
-        for p in range(outlen):
-            demodpad[p, :L] = hrev*xpad[p:(p + L)]
-        fft.execute() # input is demodpad, output is y
-        yc = np.array(y[:, ::step].T) # we need a copy, which np.array provides
-        return yc
-    
-    sweepspectra_numba = dopplerbank_dec(h, N, M)(sweepspectra_numba)
+        demodpad = np.zeros((outlen, nfft), np.result_type(xdtype, h.dtype, np.complex64))
+        demodpad = pyfftw.n_byte_align(demodpad, 16)
+        y = pyfftw.n_byte_align(np.zeros_like(demodpad), 16)
+        fft = pyfftw.FFTW(demodpad, y, threads=_THREADS)
 
-    return sweepspectra_numba
+        xtype = numba.__getattribute__(str(np.dtype(xdtype)))
+
+        @jit(argtypes=[xtype[::1]])
+        def sweepspectra_numba(x):
+            xpad[(L - 1):outlen] = x
+            for p in range(outlen):
+                demodpad[p, :L] = hrev*xpad[p:(p + L)]
+            fft.execute() # input is demodpad, output is y
+            yc = np.array(y[:, ::step].T) # we need a copy, which np.array provides
+            return yc
+
+        sweepspectra_numba = dopplerbank_dec(h, N, M)(sweepspectra_numba)
+
+        return sweepspectra_numba
 
 def SweepSpectraStridedInput(h, N, M, xdtype=np.complex_):
     # implements Doppler filter:

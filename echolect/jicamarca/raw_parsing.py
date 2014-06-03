@@ -20,8 +20,8 @@ from scipy import constants
 # ----Basic header
 # ----Data block
 # ----...
-#*Each block of data consists of a number of "profiles" (data for a single pulse), 
-# each of which contains data from each of the sample "channels". The samples are 
+#*Each block of data consists of a number of "profiles" (data for a single pulse),
+# each of which contains data from each of the sample "channels". The samples are
 # arranged hierarchically in real/imaginary, then by channel, then by delay time (range):
 # Data block----Profile 0----Delay 0----Channel 0----Real
 #                                                ----Imag
@@ -39,7 +39,7 @@ from scipy import constants
 #           ----Profile m
 #*The basic headers give the number of the following block and the time at which
 # the block begins.
-#*The long header gives system parameters and describes the number of profiles, delays, 
+#*The long header gives system parameters and describes the number of profiles, delays,
 # and channels per block of data.
 #*Detailed structures for the headers can be deduced from the functions for reading them
 # given below.
@@ -48,7 +48,7 @@ from scipy import constants
 nDataType = dict(RAWDATA = np.uint32(0x00000000),
                  SPECTRA = np.uint32(0x00000001),
                  DIFF2_PROCESS_WIN = np.uint32(0x00001000),
-                 DIFF3_PROCESS_WIN = np.uint32(0x00010000), 
+                 DIFF3_PROCESS_WIN = np.uint32(0x00010000),
                  DIFF4_PROCESS_WIN = np.uint32(0x00011000),
                  SAVE_INCOH_INT_TIME_AVER = np.uint32(0x00100000))
 
@@ -402,8 +402,8 @@ def read_proc_header(f):
     proc_header['snNSA'] = sampwin['snNSA'].astype(np.int_)
 
     if proc_header['nTotalSpectra'] != 0:
-        proc_header['nSpectraCombinations'] = np.fromfile(self._cur_file,
-                                    '<u2', proc_header['nTotalSpectra']).astype(np.int_)
+        proc_header['nSpectraCombinations'] = np.fromfile(
+            f, '<u2', proc_header['nTotalSpectra']).astype(np.int_)
         if len(proc_header['nSpectraCombinations']) != proc_header['nTotalSpectra']:
             raise EOFError('End of file reached. Could not read header.')
 
@@ -476,12 +476,12 @@ def parse_dtype(first_header):
         raw_dtype = np.dtype([('real', '<f4'), ('imag', '<f4')])
         dtype = np.dtype(np.complex64)
     elif first_header['nProcessFlags']['DATATYPE_DOUBLE']:
-        raw._dtype = np.dtype([('real', '<f8'), ('imag', '<f8')])
+        raw_dtype = np.dtype([('real', '<f8'), ('imag', '<f8')])
         dtype = np.dtype(np.complex128)
     else:
         raw_dtype = np.dtype([('real', '<i2'), ('imag', '<i2')])
         dtype = np.dtype(np.complex64)
-        
+
     return raw_dtype, dtype
 
 def parse_time(header):
@@ -500,7 +500,7 @@ def parse_ts(first_header):
     dr_km = first_header['sfDH']
     ts_s = 2*dr_km*1e3/3e8 # Jicamarca's km units for dr assume c = 3e8 m/s
     ts = np.round(1e9*ts_s).astype('timedelta64[ns]')
-    
+
     if len(ts) == 1:
         return ts[0]
     return ts
@@ -515,17 +515,17 @@ def parse_range_index(first_header):
     ngates_win = first_header['snNSA']
     r0_win = first_header['sfH0']*1e3*constants.c/3e8 # m, correct for assumed c = 3e8 m/s
     dr_win = first_header['sfDH']*1e3*constants.c/3e8 # m, correct for assumed c = 3e8 m/s
-    
+
     r = []
     for ngates, r0, dr in zip(ngates_win, r0_win, dr_win):
         r.append(r0 + np.arange(ngates)*dr)
-    
+
     r = np.hstack(r)
     return r
 
 def parse_pulse_codes(first_header):
     codes_decimal = first_header['snCode']
-    
+
     codes = []
     for kcode in xrange(codes_decimal.shape[0]):
         code = []
@@ -533,21 +533,21 @@ def parse_pulse_codes(first_header):
             code_decimal = codes_decimal[kcode, kpart]
             code.append(np.asarray(list(np.binary_repr(code_decimal)), dtype=np.int8))
         codes.append(np.hstack(code))
-    
+
     return codes
 
 def read_data_block(f, first_header):
     raw_dtype, dtype = parse_dtype(first_header)
     block_shape = parse_block_shape(first_header)
-    
+
     block = np.fromfile(f, raw_dtype, np.product(block_shape))
     try:
         block = block.reshape(block_shape)
     except ValueError: # reshape fails, we didn't get the number of samples we expected
         raise EOFError('End of file reached. Could not read block.')
-    
+
     vlt = np.empty(block_shape, dtype=dtype)
     vlt.real = block['real']
     vlt.imag = block['imag']
-    
+
     return vlt

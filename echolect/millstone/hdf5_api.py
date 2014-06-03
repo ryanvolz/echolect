@@ -11,7 +11,6 @@ import numpy as np
 import h5py
 import pandas
 
-from echolect.core import subsectime
 from echolect.core.indexing import find_index, slice_by_value, wrap_check_start, wrap_check_stop
 from .read_hdf5 import *
 

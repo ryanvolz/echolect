@@ -9,6 +9,12 @@
 import numpy as np
 import unittest
 import itertools
+try:
+    import numba
+except ImportError:
+    HAS_NUMBA = False
+else:
+    del numba
 
 from echolect.filtering import filters
 
@@ -22,26 +28,31 @@ def get_random_uniform(shape, dtype):
 def check_filters(L, M, hdtype, xdtype):
     h = get_random_uniform((L,), hdtype)
     x = get_random_uniform((M,), xdtype)
-    
+
     # first in list is used for reference
-    filts = [filters.Conv(h, M),
-             filters.CythonConv(h, M, xdtype),
-             filters.NumbaConv(h, M, xdtype),
-             filters.SparseConv(h, M),
-             filters.StridedConv(h, M),
-             filters.FFTPack(h, M, xdtype, powerof2=True),
-             filters.FFTW(h, M, xdtype, powerof2=True),
-             filters.NumbaFFTW(h, M, xdtype, powerof2=True),
-             filters.NumpyFFT(h, M, xdtype, powerof2=True)]
-    
+    filts = [
+        filters.Conv(h, M),
+        filters.CythonConv(h, M, xdtype),
+        filters.SparseConv(h, M),
+        filters.StridedConv(h, M),
+        filters.FFTPack(h, M, xdtype, powerof2=True),
+        filters.FFTW(h, M, xdtype, powerof2=True),
+        filters.NumpyFFT(h, M, xdtype, powerof2=True),
+    ]
+    if HAS_NUMBA:
+        filts.extend([
+            filters.NumbaConv(h, M, xdtype),
+            filters.NumbaFFTW(h, M, xdtype, powerof2=True),
+        ])
+
     err_msg = 'Result of filter "{0}" does not match filter "{1}"'
-    
+
     reffilt = filts[0]
     y0 = reffilt(x)
     for filt in filts[1:]:
         y1 = filt(x)
-        np.testing.assert_array_almost_equal(y0, y1, decimal=5, 
-                                             err_msg=err_msg.format(filt.func_name, 
+        np.testing.assert_array_almost_equal(y0, y1, decimal=5,
+                                             err_msg=err_msg.format(filt.func_name,
                                                                     reffilt.func_name))
 
 def test_filters():
@@ -49,7 +60,7 @@ def test_filters():
     Ms = (13, 50)
     hdtypes = (np.float64, np.complex64)
     xdtypes = (np.float64, np.complex64)
-    
+
     for L, M, hdtype, xdtype in itertools.product(Ls, Ms, hdtypes, xdtypes):
         yield check_filters, L, M, hdtype, xdtype
 

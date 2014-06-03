@@ -12,9 +12,13 @@ import scipy as sp
 import scipy.sparse
 import scipy.fftpack
 import pyfftw
-import numba
-from numba.decorators import jit, autojit
 import multiprocessing
+try:
+    import numba
+except ImportError:
+    HAS_NUMBA = False
+else:
+    from numba.decorators import jit, autojit
 
 from echolect.filtering import libfilters
 from .util import convslice, pow2, zero_pad
@@ -76,48 +80,49 @@ def CythonConv(h, M, xdtype):
     xdtype = np.dtype(xdtype)
     return filter_dec(h, M)(libfilters.Conv(h, M, xdtype))
 
-#@autojit
-#def NumbaConv(h, M, xdtype):
-    #L = len(h)
-    #outlen = M + L - 1
-    
-    #xdtype = np.dtype(xdtype)
-    #outdtype = np.result_type(h.dtype, xdtype)
+if HAS_NUMBA:
+    #@autojit
+    #def NumbaConv(h, M, xdtype):
+        #L = len(h)
+        #outlen = M + L - 1
 
-    #@jit('complex128[::1](complex128[::1])')
-    #def numba_conv(x):
-        #out = np.zeros(outlen, outdtype)
-        #for m in range(M):
-            #for l in range(L):
-                #out[m + l] += h[l]*x[m]
-        #return out
+        #xdtype = np.dtype(xdtype)
+        #outdtype = np.result_type(h.dtype, xdtype)
 
-    #return filter_dec(h, M)(numba_conv)
+        #@jit('complex128[::1](complex128[::1])')
+        #def numba_conv(x):
+            #out = np.zeros(outlen, outdtype)
+            #for m in range(M):
+                #for l in range(L):
+                    #out[m + l] += h[l]*x[m]
+            #return out
 
-def NumbaConv(h, M, xdtype):
-    L = len(h)
-    outlen = M + L - 1
-    
-    xdtype = np.dtype(xdtype)
-    htype = numba.__getattribute__(str(h.dtype))
-    xtype = numba.__getattribute__(str(xdtype))
-    outdtype = np.result_type(h.dtype, xdtype)
-    outtype = numba.__getattribute__(str(outdtype))
+        #return filter_dec(h, M)(numba_conv)
 
-    @jit(restype=outtype[::1], argtypes=[htype[::1], xtype[::1]])
-    def conv(h, x):
-        out = np.zeros(outlen, outdtype)
-        for m in range(M):
-            for l in range(L):
-                out[m + l] += h[l]*x[m]
-        return out
+    def NumbaConv(h, M, xdtype):
+        L = len(h)
+        outlen = M + L - 1
 
-    @filter_dec(h, M)
-    def numba_conv(x):
-        out = conv(h, x)
-        return out
+        xdtype = np.dtype(xdtype)
+        htype = numba.__getattribute__(str(h.dtype))
+        xtype = numba.__getattribute__(str(xdtype))
+        outdtype = np.result_type(h.dtype, xdtype)
+        outtype = numba.__getattribute__(str(outdtype))
 
-    return numba_conv
+        @jit(restype=outtype[::1], argtypes=[htype[::1], xtype[::1]])
+        def conv(h, x):
+            out = np.zeros(outlen, outdtype)
+            for m in range(M):
+                for l in range(L):
+                    out[m + l] += h[l]*x[m]
+            return out
+
+        @filter_dec(h, M)
+        def numba_conv(x):
+            out = conv(h, x)
+            return out
+
+        return numba_conv
 
 def SparseConv(h, M):
     L = len(h)
@@ -206,62 +211,63 @@ def FFTW(h, M, xdtype=np.complex_, powerof2=True):
 
     return fftw
 
-def NumbaFFTW(h, M, xdtype=np.complex_, powerof2=True):
-    L = len(h)
-    outlen = M + L - 1
-    nfft = outlen
-    if powerof2:
-        nfft = pow2(nfft)
+if HAS_NUMBA:
+    def NumbaFFTW(h, M, xdtype=np.complex_, powerof2=True):
+        L = len(h)
+        outlen = M + L - 1
+        nfft = outlen
+        if powerof2:
+            nfft = pow2(nfft)
 
-    outdtype = np.result_type(h.dtype, xdtype)
-    fftdtype = np.result_type(outdtype, np.complex64) # output is always complex, promote using smallest
+        outdtype = np.result_type(h.dtype, xdtype)
+        fftdtype = np.result_type(outdtype, np.complex64) # output is always complex, promote using smallest
 
-    # speed not critical here, just use numpy fft
-    # cast to outdtype so we use same type of fft as when transforming x
-    hpad = zero_pad(h, nfft).astype(outdtype)
-    if np.iscomplexobj(hpad):
-        H = np.fft.fft(hpad)
-    else:
-        H = np.fft.rfft(hpad)
-    H = (H / nfft).astype(fftdtype) # divide by nfft b/c FFTW's ifft does not do this
+        # speed not critical here, just use numpy fft
+        # cast to outdtype so we use same type of fft as when transforming x
+        hpad = zero_pad(h, nfft).astype(outdtype)
+        if np.iscomplexobj(hpad):
+            H = np.fft.fft(hpad)
+        else:
+            H = np.fft.rfft(hpad)
+        H = (H / nfft).astype(fftdtype) # divide by nfft b/c FFTW's ifft does not do this
 
-    xpad = pyfftw.n_byte_align(np.zeros(nfft, outdtype), 16) # outdtype so same type fft as h->H
-    X = pyfftw.n_byte_align(np.zeros(len(H), fftdtype), 16) # len(H) b/c rfft may be used
-    xfft = pyfftw.FFTW(xpad, X, threads=_THREADS)
+        xpad = pyfftw.n_byte_align(np.zeros(nfft, outdtype), 16) # outdtype so same type fft as h->H
+        X = pyfftw.n_byte_align(np.zeros(len(H), fftdtype), 16) # len(H) b/c rfft may be used
+        xfft = pyfftw.FFTW(xpad, X, threads=_THREADS)
 
-    y = pyfftw.n_byte_align_empty(nfft, 16, outdtype)
-    ifft = pyfftw.FFTW(X, y, direction='FFTW_BACKWARD', threads=_THREADS)
-    
-    xtype = numba.__getattribute__(str(np.dtype(xdtype)))
-    outtype = numba.__getattribute__(str(outdtype))
-    ffttype = numba.__getattribute__(str(fftdtype))
+        y = pyfftw.n_byte_align_empty(nfft, 16, outdtype)
+        ifft = pyfftw.FFTW(X, y, direction='FFTW_BACKWARD', threads=_THREADS)
 
-    #@jit(restype=outtype[::1], 
-         #argtypes=[outtype[::1], ffttype[::1], ffttype[::1], outtype[::1], xtype[::1]])
-    #def filt(xpad, X, H, y, x):
-        #xpad[:M] = x
-        #xfft.execute() # input in xpad, result in X
-        #X[:] = H*X
-        #ifft.execute() # input in X, result in y
-        #yc = y[:outlen].copy()
-        #return yc
-    
-    #@filter_dec(h, M, nfft=nfft, H=H)
-    #def numba_fftw(x):
-        #return filt(xpad, X, H, y, x)
-    
-    @jit(argtypes=[xtype[::1]])
-    def numba_fftw(x):
-        xpad[:M] = x
-        xfft.execute() # input in xpad, result in X
-        X[:] = H*X # want expression that is optimized by numba but writes into X
-        ifft.execute() # input in X, result in y
-        yc = y[:outlen].copy()
-        return yc
-    
-    numba_fftw = filter_dec(h, M, nfft=nfft, H=H)(numba_fftw)
+        xtype = numba.__getattribute__(str(np.dtype(xdtype)))
+        outtype = numba.__getattribute__(str(outdtype))
+        ffttype = numba.__getattribute__(str(fftdtype))
 
-    return numba_fftw
+        #@jit(restype=outtype[::1],
+            #argtypes=[outtype[::1], ffttype[::1], ffttype[::1], outtype[::1], xtype[::1]])
+        #def filt(xpad, X, H, y, x):
+            #xpad[:M] = x
+            #xfft.execute() # input in xpad, result in X
+            #X[:] = H*X
+            #ifft.execute() # input in X, result in y
+            #yc = y[:outlen].copy()
+            #return yc
+
+        #@filter_dec(h, M, nfft=nfft, H=H)
+        #def numba_fftw(x):
+            #return filt(xpad, X, H, y, x)
+
+        @jit(argtypes=[xtype[::1]])
+        def numba_fftw(x):
+            xpad[:M] = x
+            xfft.execute() # input in xpad, result in X
+            X[:] = H*X # want expression that is optimized by numba but writes into X
+            ifft.execute() # input in X, result in y
+            yc = y[:outlen].copy()
+            return yc
+
+        numba_fftw = filter_dec(h, M, nfft=nfft, H=H)(numba_fftw)
+
+        return numba_fftw
 
 def NumpyFFT(h, M, xdtype=np.complex_, powerof2=True):
     L = len(h)

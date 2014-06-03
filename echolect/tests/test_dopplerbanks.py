@@ -10,6 +10,12 @@
 import numpy as np
 import unittest
 import itertools
+try:
+    import numba
+except ImportError:
+    HAS_NUMBA = False
+else:
+    del numba
 
 from echolect.filtering import dopplerbanks
 
@@ -23,19 +29,24 @@ def get_random_uniform(shape, dtype):
 def check_doppler_banks(L, M, N, hdtype, xdtype):
     h = get_random_uniform((L,), hdtype)
     x = get_random_uniform((M,), xdtype)
-    
+
     # first in list is used for reference
-    filts = [dopplerbanks.ShiftConv(h, N, M),
-             dopplerbanks.ShiftConvFFT(h, N, M, xdtype, powerof2=True),
-             dopplerbanks.ShiftConvNumbaFFT(h, N, M, xdtype, powerof2=True),
-             dopplerbanks.ShiftConvSparse(h, N, M),
-             dopplerbanks.SweepSpectraCython(h, N, M, xdtype),
-             dopplerbanks.SweepSpectraNumba(h, N, M, xdtype),
-             dopplerbanks.SweepSpectraStridedInput(h, N, M, xdtype),
-             dopplerbanks.SweepSpectraStridedTaps(h, N, M, xdtype)]
-    
+    filts = [
+        dopplerbanks.ShiftConv(h, N, M),
+        dopplerbanks.ShiftConvFFT(h, N, M, xdtype, powerof2=True),
+        dopplerbanks.ShiftConvSparse(h, N, M),
+        dopplerbanks.SweepSpectraCython(h, N, M, xdtype),
+        dopplerbanks.SweepSpectraStridedInput(h, N, M, xdtype),
+        dopplerbanks.SweepSpectraStridedTaps(h, N, M, xdtype),
+    ]
+    if HAS_NUMBA:
+        filts.extend([
+            dopplerbanks.ShiftConvNumbaFFT(h, N, M, xdtype, powerof2=True),
+            dopplerbanks.SweepSpectraNumba(h, N, M, xdtype),
+        ])
+
     err_msg = 'Result of filter "{0}" does not match filter "{1}"'
-    
+
     reffilt = filts[0]
     y0 = reffilt(x)
     for filt in filts[1:]:
@@ -48,7 +59,7 @@ def test_doppler_banks():
     Ns = (16, 16, 16, 10, 64, 128)
     hdtypes = (np.float64, np.complex64)
     xdtypes = (np.float64, np.complex64)
-    
+
     for (L, M, N), hdtype, xdtype in itertools.product(zip(Ls, Ms, Ns), hdtypes, xdtypes):
         yield check_doppler_banks, L, M, N, hdtype, xdtype
 

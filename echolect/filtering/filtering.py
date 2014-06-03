@@ -8,6 +8,12 @@
 #-----------------------------------------------------------------------------
 
 import numpy as np
+try:
+    import numba
+except ImportError:
+    HAS_NUMBA = False
+else:
+    del numba
 
 from . import filters
 from . import dopplerbanks
@@ -15,7 +21,7 @@ from . import util
 from .util import *
 
 __all__ = ['measure_filters', 'Filter', 'filter', 'doppler_coefs',
-           'measure_doppler_banks', 'DopplerBank', 'DopplerBankMax', 
+           'measure_doppler_banks', 'DopplerBank', 'DopplerBankMax',
            'doppler_bank', 'doppler_bank_max',
            'matched_coefs', 'Matched', 'MatchedDoppler', 'MatchedDopplerMax',
            'matched', 'matched_doppler', 'matched_doppler_max',
@@ -25,17 +31,25 @@ __all__.extend(util.__all__)
 
 # ******** Filter functions ********
 
-def measure_filters(h, M, xdtype=np.complex_, number=100, disp=True, meas_all=False):
-    flist = [filters.CythonConv(h, M, xdtype),
-             filters.NumbaConv(h, M, xdtype),
-             filters.NumbaFFTW(h, M, xdtype, powerof2=True)]
+def measure_filters(h, M, xdtype=np.complex_, number=100, disp=True,
+                    meas_all=False):
+    flist = [
+        filters.CythonConv(h, M, xdtype),
+        filters.FFTW(h, M, xdtype, powerof2=True),
+    ]
+    if HAS_NUMBA:
+        flist.extend([
+            filters.NumbaConv(h, M, xdtype),
+            filters.NumbaFFTW(h, M, xdtype, powerof2=True),
+        ])
     if meas_all:
-        flist.extend([filters.Conv(h, M),
-                      filters.StridedConv(h, M),
-                      filters.SparseConv(h, M),
-                      filters.FFTPack(h, M, xdtype, powerof2=True),
-                      filters.FFTW(h, M, xdtype, powerof2=True),
-                      filters.NumpyFFT(h, M, xdtype, powerof2=True)])
+        flist.extend([
+            filters.Conv(h, M),
+            filters.StridedConv(h, M),
+            filters.SparseConv(h, M),
+            filters.FFTPack(h, M, xdtype, powerof2=True),
+            filters.NumpyFFT(h, M, xdtype, powerof2=True),
+        ])
     x = np.empty(M, xdtype)
     x.real = 2*np.random.rand(M) - 1
     if np.iscomplexobj(x):
@@ -55,7 +69,8 @@ def measure_filters(h, M, xdtype=np.complex_, number=100, disp=True, meas_all=Fa
 
 def Filter(h, M, xdtype=np.complex_, measure=True):
     if measure is True:
-        times, flist = measure_filters(h, M, xdtype, number=10, disp=False, meas_all=False)
+        times, flist = measure_filters(h, M, xdtype, number=10, disp=False,
+                                       meas_all=False)
         filt = flist[np.argmin(times)]
     else:
         filt = filters.FFTW(h, M, xdtype, powerof2=True)
@@ -69,7 +84,7 @@ def filter(h, x, mode=None):
         res = apply_to_2d(filt, x)
     else:
         res = filt(x)
-    
+
     if mode is None or mode == 'full':
         return res
     else:
@@ -109,19 +124,26 @@ def doppler_coefs(h, f):
 
 # ******** Doppler bank functions ********
 
-def measure_doppler_banks(h, N, M, xdtype=np.complex_, number=100, disp=True, meas_all=False):
-    flist = [dopplerbanks.ShiftConvFFT(h, N, M, xdtype, powerof2=True),
-             dopplerbanks.SweepSpectraCython(h, N, M, xdtype),
-             dopplerbanks.SweepSpectraNumba(h, N, M, xdtype),
-             dopplerbanks.SweepSpectraStridedInput(h, N, M, xdtype),
-             ]
+def measure_doppler_banks(h, N, M, xdtype=np.complex_, number=100, disp=True,
+                          meas_all=False):
+    flist = [
+        dopplerbanks.ShiftConvFFT(h, N, M, xdtype, powerof2=True),
+        dopplerbanks.SweepSpectraCython(h, N, M, xdtype),
+        dopplerbanks.SweepSpectraStridedInput(h, N, M, xdtype),
+    ]
+    if HAS_NUMBA:
+        flist.extend([dopplerbanks.SweepSpectraNumba(h, N, M, xdtype)])
     if meas_all:
-        flist.extend([dopplerbanks.ShiftConv(h, N, M),
-                      dopplerbanks.ShiftConvNumbaFFT(h, N, M, xdtype, powerof2=True),
-                      dopplerbanks.ShiftConvSparse(h, N, M),
-                      dopplerbanks.ShiftConvSparseMod(h, N, M),
-                      dopplerbanks.SweepSpectraStridedTaps(h, N, M),
-                      dopplerbanks.SweepSpectraStridedTapsMod(h, N, M)])
+        flist.extend([
+            dopplerbanks.ShiftConv(h, N, M),
+            dopplerbanks.ShiftConvSparse(h, N, M),
+            dopplerbanks.ShiftConvSparseMod(h, N, M),
+            dopplerbanks.SweepSpectraStridedTaps(h, N, M),
+            dopplerbanks.SweepSpectraStridedTapsMod(h, N, M),
+        ])
+        if HAS_NUMBA:
+            flist.extend([dopplerbanks.ShiftConvNumbaFFT(h, N, M, xdtype,
+                                                         powerof2=True)])
     x = np.empty(M, xdtype)
     x.real = 2*np.random.rand(M) - 1
     if np.iscomplexobj(x):
@@ -135,13 +157,14 @@ def measure_doppler_banks(h, N, M, xdtype=np.complex_, number=100, disp=True, me
     if disp:
         for time, filt in tups:
             print(filt.func_name + ': {0} s per call'.format(time/number))
-    
+
     times, flist = zip(*tups)
     return times, flist
 
 def DopplerBank(h, N, M, xdtype=np.complex_, measure=True):
     if measure is True:
-        times, flist = measure_doppler_banks(h, N, M, xdtype, number=10, disp=False, meas_all=False)
+        times, flist = measure_doppler_banks(h, N, M, xdtype, number=10,
+                                             disp=False, meas_all=False)
         bank = flist[np.argmin(times)]
     else:
         bank = dopplerbanks.SweepSpectraStridedInput(h, N, M, xdtype)
@@ -174,7 +197,7 @@ def DopplerBankMax(h, N, M, xdtype=np.complex_, measure=True):
 
         f = float(shift)/N
         return y[shift], f
-    
+
     doppler_bank_max.__dict__.update(bank.__dict__)
     doppler_bank_max.bank = bank
 
@@ -187,7 +210,7 @@ def doppler_bank(h, N, x, mode=None):
         res = apply_to_2d(filt, x)
     else:
         res = filt(x)
-    
+
     return apply_filter_mode(filt, res, mode)
 
 def doppler_bank_max(h, N, x, mode=None):
@@ -197,7 +220,7 @@ def doppler_bank_max(h, N, x, mode=None):
         res = apply_to_2d(filt, x)
     else:
         res = filt(x)
-    
+
     return (apply_filter_mode(filt, res[0], mode), res[1])
 
 
@@ -231,7 +254,7 @@ def matched(s, x, mode=None):
         res = apply_to_2d(filt, x)
     else:
         res = filt(x)
-    
+
     return apply_filter_mode(filt, res, mode)
 
 def matched_doppler(s, N, x, mode=None):
@@ -241,7 +264,7 @@ def matched_doppler(s, N, x, mode=None):
         res = apply_to_2d(filt, x)
     else:
         res = filt(x)
-    
+
     return apply_filter_mode(filt, res, mode)
 
 def matched_doppler_max(s, N, x, mode=None):
@@ -251,7 +274,7 @@ def matched_doppler_max(s, N, x, mode=None):
         res = apply_to_2d(filt, x)
     else:
         res = filt(x)
-    
+
     return (apply_filter_mode(filt, res[0], mode), res[1])
 
 
@@ -261,10 +284,11 @@ def inverse_coefs(s, ntaps):
     S = np.fft.fft(s, n=ntaps)
     # q is the output we want from the inverse filter, a delta with proper delay
     q = np.zeros(ntaps, dtype=s.dtype)
-    # delay = (ntaps + len(s) - 1)//2 places delta in middle of output with 
+    # delay = (ntaps + len(s) - 1)//2 places delta in middle of output with
     # outlen = ntaps + len(s) - 1
-    # this ensures that the non-circular convolution that we use to apply this filter
-    # gives a result as close as possible to the ideal inverse circular convolution
+    # this ensures that the non-circular convolution that we use to apply this
+    # filter gives a result as close as possible to the ideal inverse circular
+    # convolution
     q[(ntaps + len(s) - 1)//2] = 1
     Q = np.fft.fft(q)
     H = Q/S
@@ -304,7 +328,7 @@ def inverse(s, ntaps, x, mode=None):
         res = apply_to_2d(filt, x)
     else:
         res = filt(x)
-    
+
     return apply_filter_mode(filt, res, mode)
 
 def inverse_doppler(s, ntaps, N, x, mode=None):
@@ -314,7 +338,7 @@ def inverse_doppler(s, ntaps, N, x, mode=None):
         res = apply_to_2d(filt, x)
     else:
         res = filt(x)
-    
+
     return apply_filter_mode(filt, res, mode)
 
 def inverse_doppler_max(s, ntaps, N, x, mode=None):
@@ -324,5 +348,5 @@ def inverse_doppler_max(s, ntaps, N, x, mode=None):
         res = apply_to_2d(filt, x)
     else:
         res = filt(x)
-    
+
     return (apply_filter_mode(filt, res[0], mode), res[1])
