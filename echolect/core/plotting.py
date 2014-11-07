@@ -15,22 +15,22 @@ import pandas
 
 from echolect.tools.time import datetime_from_float, datetime_to_float, timestamp_strftime
 
-__all__ = ['rtiplot', 'implot', 'colorbar', 'make_axes_fixed', 
+__all__ = ['rtiplot', 'implot', 'colorbar', 'make_axes_fixed',
            'arrayticks', 'timeticks_helper', 'timeticks_array', 'timeticks']
 
 def rtiplot(z, t, r, **kwargs):
     kwargs['xistime'] = True
     return implot(z, t, r, **kwargs)
 
-def implot(z, x, y, xlabel=None, ylabel=None, title=None, 
-           exact_ticks=True, xbins=10, ybins=10, 
-           xistime=False, yistime=False, 
-           cbar=True, clabel=None, cposition='right', 
-           csize=0.125, cpad=0.1, cbins=None, 
-           ax=None, pixelaspect=None, 
+def implot(z, x, y, xlabel=None, ylabel=None, title=None,
+           exact_ticks=True, xbins=10, ybins=10,
+           xistime=False, yistime=False,
+           cbar=True, clabel=None, cposition='right',
+           csize=0.125, cpad=0.1, cbins=None,
+           ax=None, pixelaspect=None,
            **kwargs):
-    imshowkwargs = dict(aspect='auto', interpolation=None, origin='lower')
-    
+    imshowkwargs = dict(aspect='auto', interpolation='none', origin='lower')
+
     # asarray needed to convert pandas' DatetimeIndex to datetime64
     if xistime:
         x = np.asarray(x)
@@ -70,7 +70,7 @@ def implot(z, x, y, xlabel=None, ylabel=None, title=None,
         arr_aspect = float(z.shape[0])/z.shape[1]
         aspect = box_aspect/arr_aspect/pixelaspect
         imshowkwargs.update(aspect=aspect)
-    
+
     imshowkwargs.update(kwargs)
 
     if ax is None:
@@ -78,7 +78,7 @@ def implot(z, x, y, xlabel=None, ylabel=None, title=None,
     img = ax.imshow(z.T, **imshowkwargs)
 
     if cbar:
-        cb = colorbar(img, position=cposition, size=csize, pad=cpad, 
+        cb = colorbar(img, position=cposition, size=csize, pad=cpad,
                       label=clabel, bins=cbins)
 
     # title and labels
@@ -111,7 +111,7 @@ def implot(z, x, y, xlabel=None, ylabel=None, title=None,
 
     return img
 
-def colorbar(img, position='right', size=0.125, pad=0.1, label=None, bins=None, 
+def colorbar(img, position='right', size=0.125, pad=0.1, label=None, bins=None,
              **kwargs):
     # add a colorbar that resizes with the image
     ax = img.axes
@@ -129,13 +129,13 @@ def colorbar(img, position='right', size=0.125, pad=0.1, label=None, bins=None,
         # delete colorbar reference
         img.colorbar = None
         del oldcb, oldcax, origloc
-    
+
     # save original locator as attribute (so we can delete colorbar, see above)
     origloc = ax.get_axes_locator()
     img.axesloc = origloc
     # make axes locatable so we can use the resulting divider to add a colorbar
     axdiv = make_axes_locatable(ax)
-    
+
     # create colorbar and its axes
     cax = axdiv.append_axes(position, size=size, pad=pad)
     if position in ('bottom', 'top'):
@@ -147,17 +147,17 @@ def colorbar(img, position='right', size=0.125, pad=0.1, label=None, bins=None,
     img.colorbar = cb
     if label is not None:
         cb.set_label(label)
-    
+
     # adjust number of tick bins if desired
     if bins is not None:
         tickloc = mpl.ticker.MaxNLocator(nbins=bins, integer=False)
         cb.locator = tickloc
         # must be called whenever colorbar tick locator or formatter is changed
         cb.update_ticks()
-    
+
     # make current axes ax (to make sure it is not cax)
     fig.sca(ax)
-    
+
     return cb
 
 def make_axes_fixed(ax, xinches, yinches):
@@ -168,47 +168,47 @@ def make_axes_fixed(ax, xinches, yinches):
     origloc = ax.get_axes_locator()
     if origloc is not None:
         div.set_locator(origloc)
-    
+
     # place the axes in the new divider
     loc = div.new_locator(0, 0)
     ax.set_axes_locator(loc)
-    
+
     return div
 
 def make_axes_locatable(ax):
     # custom make_axes_locatable to fix:
-    #  - case when axes is already locatable and we want to work within 
+    #  - case when axes is already locatable and we want to work within
     #    existing divider
     #  - case when axes has a specified aspect ratio other than 1 or auto
 
     origloc = ax.get_axes_locator()
     if origloc is None:
         # create axes divider that follows size of original axes (the subplot's area)
-        
+
         # default AxesDivider has relative lengths in data units,
         # i.e. if the x-axis goes from x0 to x1, then the horizontal size of
         # the axes has a relative length of (x1 - x0)
-        
+
         # when the axes' aspect ratio is set, however, the default axes divider
         # scales the divider size so that aspect ratio is fixed at 1 regardless
         # of the specified aspect ratio
-        
+
         # in order to make aspect ratios other than 1 work, we need to scale
         # the relative length for the y-axis by the aspect ratio
-        
+
         # set relative length for x-axis based on data units of ax
         hsize = axes_grid1.Size.AxesX(ax)
-        
+
         # set relative length for y-axis based on aspect-scaled data units
         aspect = ax.get_aspect()
         if aspect == 'equal':
             aspect = 1
-        
+
         if aspect == 'auto':
             vsize = axes_grid1.Size.AxesY(ax)
         else:
             vsize = axes_grid1.Size.AxesY(ax, aspect=aspect)
-        
+
         div = axes_grid1.axes_divider.AxesDivider(ax, xref=hsize, yref=vsize)
     else:
         origdiv = origloc._axes_divider
@@ -221,11 +221,11 @@ def make_axes_locatable(ax):
         div.set_aspect(origdiv.get_aspect())
         div.set_anchor(origdiv.get_anchor())
         div.set_locator(origloc)
-    
+
     # place the axes in the new divider
     loc = div.new_locator(0, 0)
     ax.set_axes_locator(loc)
-    
+
     return div
 
 def arrayticks(axis, arr, nbins=10):
@@ -266,7 +266,7 @@ def timeticks_helper(ts, te):
     elif tts[2] != tte[2]:
         tlabel = timestamp_strftime(ts, '%B %Y')
         sfun = lambda ttick: timestamp_strftime(
-                              ttick, 
+                              ttick,
                               '%d, %H:%M:%S.%f').rstrip('0').rstrip('.')
     # compare hour
     elif tts[3] != tte[3]:
@@ -295,10 +295,10 @@ def timeticks_helper(ts, te):
     return tlabel, sfun
 
 def timeticks_array(axis, arr, nbins=10):
-    # convert time array to pandas DatetimeIndex, 
+    # convert time array to pandas DatetimeIndex,
     # which returns Timestamp objects when indexed
     arr_idx = pandas.DatetimeIndex(arr)
-    
+
     tlabel, sfun = timeticks_helper(arr_idx[0], arr_idx[-1])
     currlabel = axis.get_label_text()
     if currlabel != '':
@@ -316,7 +316,7 @@ def timeticks_array(axis, arr, nbins=10):
             if pos is None:
                 s = s + ' ({0})'.format(idx)
         return s
-    
+
     axis.set_major_formatter(mpl.ticker.FuncFormatter(tickformatter))
     axis.set_major_locator(mpl.ticker.MaxNLocator(nbins=nbins, integer=True))
 
@@ -329,7 +329,7 @@ def timeticks(axis, ts, te, floatepoch, nbins=10):
     # convert ts and te to Timestamp objects
     ts = pandas.Timestamp(ts)
     te = pandas.Timestamp(te)
-    
+
     tlabel, sfun = timeticks_helper(ts, te)
     currlabel = axis.get_label_text()
     if currlabel != '':
