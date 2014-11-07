@@ -14,6 +14,7 @@ try:
 except ImportError:
     HAS_NUMBA = False
 else:
+    HAS_NUMBA = True
     del numba
 
 from echolect.filtering import filters

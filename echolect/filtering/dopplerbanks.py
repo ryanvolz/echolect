@@ -17,6 +17,7 @@ try:
 except ImportError:
     HAS_NUMBA = False
 else:
+    HAS_NUMBA = True
     from numba.decorators import jit, autojit
 
 from . import filters
@@ -193,7 +194,7 @@ def ShiftConvSparse(h, N, M):
     return shiftconv_sparse
 
 
-# ******** Doppler banks implemented by sweeping demodulation of the input and 
+# ******** Doppler banks implemented by sweeping demodulation of the input and
 #          calculation of the spectrum for segments of the input               ********
 
 def SweepSpectraCython(h, N, M, xdtype=np.complex_):
@@ -206,10 +207,10 @@ def SweepSpectraCython(h, N, M, xdtype=np.complex_):
     # then subsample to get our N points that we desire
     step = L // N + 1
     nfft = N*step
-    
+
     # ensure that h is C-contiguous as required by the Cython function
     h = np.asarray(h, order='C')
-    
+
     # make sure xdtype is a dtype object
     xdtype = np.dtype(xdtype)
 
@@ -217,11 +218,11 @@ def SweepSpectraCython(h, N, M, xdtype=np.complex_):
     demodpad = pyfftw.n_byte_align(demodpad, 16)
     y = pyfftw.n_byte_align(np.zeros_like(demodpad), 16)
     fft = pyfftw.FFTW(demodpad, y, threads=_THREADS)
-    
-    sweepspectra_cython = libdopplerbanks.SweepSpectraCython(h, demodpad, y, fft, 
+
+    sweepspectra_cython = libdopplerbanks.SweepSpectraCython(h, demodpad, y, fft,
                                                              step, N, M, xdtype)
     sweepspectra_cython = dopplerbank_dec(h, N, M)(sweepspectra_cython)
-    
+
     return sweepspectra_cython
 
 if HAS_NUMBA:
@@ -269,7 +270,7 @@ def SweepSpectraStridedInput(h, N, M, xdtype=np.complex_):
     # then subsample to get our N points that we desire
     step = L // N + 1
     nfft = N*step
-    
+
     hrev = h[::-1]
     xpad = np.zeros(M + 2*(L - 1), xdtype) # x[0] at xpad[L - 1]
     xshifted = np.lib.stride_tricks.as_strided(xpad,

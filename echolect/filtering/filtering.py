@@ -13,6 +13,7 @@ try:
 except ImportError:
     HAS_NUMBA = False
 else:
+    HAS_NUMBA = True
     del numba
 
 from . import filters

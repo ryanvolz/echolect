@@ -18,6 +18,7 @@ try:
 except ImportError:
     HAS_NUMBA = False
 else:
+    HAS_NUMBA = True
     from numba.decorators import jit, autojit
 
 from echolect.filtering import libfilters
