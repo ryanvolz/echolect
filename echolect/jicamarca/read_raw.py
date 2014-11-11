@@ -18,9 +18,9 @@ from echolect.core.indexing import (find_index, slice_by_value, wrap_check_start
 from . import raw_parsing
 
 __all__ = ['file_times', 'find_files', 'find_files_recursive', 'map_file_blocks',
-           'read_voltage', 
+           'read_voltage',
            'voltage_reader']
-           
+
 #******** See raw_parsing.py for details on Jicamarca raw data format ***************
 
 def find_files(fdir, pattern='D*.r'):
@@ -44,7 +44,7 @@ def file_times(files):
             h = raw_parsing.read_first_header(f)
             time = raw_parsing.parse_time(h)
             file_times.append(time)
-     
+
     return np.asarray(file_times)
 
 def map_file_blocks(fpath):
@@ -59,33 +59,33 @@ def map_file_blocks(fpath):
         time = raw_parsing.parse_time(h)
         block_times.append(time)
         data_start_bytes.append(f.tell())
-        
+
         block_size = h['nSizeOfDataBlock']
         while True:
             # skip over the previous block of data
             f.seek(block_size, 1)
-            
+
             # read the block's header
             try:
                 h = raw_parsing.read_basic_header(f)
             except EOFError:
                 break
-            
+
             time = raw_parsing.parse_time(h)
             # check validity of header
             # assume that if time is 0, the subsequent block was
             # not written and hence EOF has been reached
             if time == 0:
                 break
-            
+
             headers.append(h)
             block_times.append(time)
             data_start_bytes.append(f.tell())
-    
+
     headers = np.asarray(headers)
     block_times = np.asarray(block_times)
     data_start_bytes = np.asarray(data_start_bytes)
-    
+
     return headers, block_times, data_start_bytes
 
 class voltage_reader(object):
@@ -95,12 +95,12 @@ class voltage_reader(object):
         self.headers = headers
         self.block_times = block_times
         self.data_start_bytes = data_start_bytes
-        
+
         h = headers[0]
         raw_dtype, dtype = raw_parsing.parse_dtype(h)
         self.raw_dtype = raw_dtype
         self.dtype = dtype
-        
+
         block_shape = raw_parsing.parse_block_shape(h)
         self.block_shape = block_shape
         self.nprofiles_per_block = block_shape[0]
@@ -111,11 +111,11 @@ class voltage_reader(object):
         self.nprofiles = self.nblocks*block_shape[0]
         self.profile_bytes = self.nitems_per_profile*self.raw_dtype.itemsize
         self.shape = (self.nprofiles, self.nchannels, self.nsamples_per_profile)
-        
+
         self.ts = raw_parsing.parse_ts(h)
         self.ipp = raw_parsing.parse_ipp(h)
         self.r = raw_parsing.parse_range_index(h)
-    
+
     def __getitem__(self, key):
         if not isinstance(key, tuple):
             pidx = key
@@ -137,14 +137,14 @@ class voltage_reader(object):
                 pidx = key[0]
                 cidx = key[1]
                 sidx = key[2]
-        
+
         if isinstance(pidx, int):
             return self.read_voltage(pidx, chan_idx=cidx, sample_idx=sidx)
-        
+
         # pidx must be a slice object
         start, stop, step = pidx.indices(self.shape[0])
         return self.read_voltage(start, stop, step, cidx, sidx)
-        
+
     def _read_from_block(self, block_num, start, stop, step, chan_idx, sample_idx):
         num = stop - start
         # so we drop dimension when num == 1
@@ -152,7 +152,7 @@ class voltage_reader(object):
             prof_idx = 0
         else:
             prof_idx = slice(0, num, step)
-        
+
         fstart = self.data_start_bytes[block_num] + self.profile_bytes*start
         with open(self.fpath, 'rb') as f:
             f.seek(fstart)
@@ -167,31 +167,34 @@ class voltage_reader(object):
         vlt = np.empty(vlt_raw.shape, dtype=self.dtype)
         vlt.real = vlt_raw['real']
         vlt.imag = vlt_raw['imag']
-        
+
         return vlt
-    
-    def read_from_block(self, block_num, start, stop=None, step=1, 
+
+    def read_from_block(self, block_num, start, stop=None, step=1, nframes=1
                         chan_idx=slice(None), sample_idx=slice(None)):
         start = wrap_check_start(self.nprofiles_per_block, start)
-        stop = wrap_check_stop(self.nprofiles_per_block, stop)
+        if stop is None:
+            stop = start + step*nframes
+        else:
+            stop = wrap_check_stop(self.nprofiles_per_block, stop)
         ## change ints to lists so that we don't lose dimensions when indexing
         #if isinstance(chan_idx, int):
             #chan_idx = [chan_idx]
         #if isinstance(sample_idx, int):
             #sample_idx = [sample_idx]
         return self._read_from_block(block_num, start, stop, step, chan_idx, sample_idx)
-    
+
     def _read_from_blocks(self, blocknumstart, blockstart, blocknumend, blockstop,
                           step, chan_idx, sample_idx):
         if blocknumstart == blocknumend:
-            return self.read_from_block(blocknumstart, blockstart, blockstop, step, 
+            return self.read_from_block(blocknumstart, blockstart, blockstop, step,
                                         chan_idx, sample_idx)
-        
+
         start = blockstart
         vlt_all = []
         for bnum in xrange(blocknumstart, blocknumend + 1):
             if bnum == blocknumend:
-                vlt_all.append(self.read_from_block(bnum, start, blockstop, step, 
+                vlt_all.append(self.read_from_block(bnum, start, blockstop, step,
                                                     chan_idx, sample_idx))
             else:
                 vlt_all.append(self.read_from_block(bnum, start, self.nprofiles_per_block, step,
@@ -199,26 +202,29 @@ class voltage_reader(object):
                 # set start for (possibly != 0) based on step
                 # step - ((nprofiles - start) % step) == (start - nprofiles) % step
                 start = (start - self.nprofiles_per_block) % step
-        
+
         return np.concatenate(vlt_all, axis=0)
 
-    def read_voltage(self, start, stop=None, step=1, 
+    def read_voltage(self, start, stop=None, step=1, nframes=1,
                      chan_idx=slice(None), sample_idx=slice(None)):
         start = wrap_check_start(self.shape[0], start)
-        stop = wrap_check_stop(self.shape[0], stop)
+        if stop is None:
+            stop = start + step*nframes
+        else:
+            stop = wrap_check_stop(self.shape[0], stop)
         ## change ints to lists so that we don't lose dimensions when indexing
         #if isinstance(chan_idx, int):
             #chan_idx = [chan_idx]
         #if isinstance(sample_idx, int):
             #sample_idx = [sample_idx]
-        
+
         # find blocks for start and stop
         bstart, strt = divmod(start, self.nprofiles_per_block)
         # want block of last profile to include, hence profile number end = stop - 1
         end = stop - 1
         bend, nend = divmod(end, self.nprofiles_per_block)
         stp = nend + 1
-        
+
         return self._read_from_blocks(bstart, strt, bend, stp, step, chan_idx, sample_idx)
 
 def read_voltage(fpath, key=slice(None)):
