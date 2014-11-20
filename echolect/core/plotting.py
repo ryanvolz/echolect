@@ -288,15 +288,15 @@ def timeticks_helper(ts, te):
                               '%M:%S.%f').rstrip('0').rstrip('.')
     # compare second
     elif tts[5] != tte[5]:
-        tlabel = timestamp_strftime(ts, '%b %d %Y, %H:%M:xx')
+        tlabel = timestamp_strftime(ts, '%b %d %Y, %H:%M:xx (s)')
         sfun = lambda ttick: timestamp_strftime(
                               ttick,
                               '%S.%f').rstrip('0').rstrip('.')
     else:
-        tlabel = timestamp_strftime(ts, '%b %d %Y, %H:%M:%S.xx')
+        tlabel = timestamp_strftime(ts, '%b %d %Y, %H:%M:%S+ (s)')
         sfun = lambda ttick: timestamp_strftime(
                               ttick,
-                              '%f')
+                              '0.%f')
     return tlabel, sfun
 
 def timeticks_array(axis, arr, nbins=10):
