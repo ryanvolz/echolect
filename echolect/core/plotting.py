@@ -15,7 +15,7 @@ import pandas
 
 from echolect.tools.time import datetime_from_float, datetime_to_float, timestamp_strftime
 
-__all__ = ['rtiplot', 'implot', 'colorbar', 'make_axes_fixed',
+__all__ = ['rtiplot', 'implot', 'colorbar', 'make_axes_fixed', 'rotate_ticklabels',
            'arrayticks', 'timeticks_helper', 'timeticks_array', 'timeticks']
 
 def rtiplot(z, t, r, **kwargs):
@@ -108,6 +108,12 @@ def implot(z, x, y, xlabel=None, ylabel=None, title=None,
             timeticks(ax.yaxis, y[0], y[-1], yepoch, ybins)
         else:
             ax.yaxis.set_major_locator(mpl.ticker.MaxNLocator(nbins=ybins, integer=False))
+
+    # rotate the ticks by default if they are time ticks
+    if xistime:
+        rotate_ticklabels(ax.xaxis, -45)
+    if yistime:
+        rotate_ticklabels(ax.yaxis, 45)
 
     return img
 
@@ -291,7 +297,6 @@ def timeticks_helper(ts, te):
         sfun = lambda ttick: timestamp_strftime(
                               ttick,
                               '%f')
-
     return tlabel, sfun
 
 def timeticks_array(axis, arr, nbins=10):
@@ -320,11 +325,6 @@ def timeticks_array(axis, arr, nbins=10):
     axis.set_major_formatter(mpl.ticker.FuncFormatter(tickformatter))
     axis.set_major_locator(mpl.ticker.MaxNLocator(nbins=nbins, integer=True))
 
-    # rotate x-axis tick labels so they can be read and fit together
-    for label in axis.get_ticklabels():
-        label.set_ha('left')
-        label.set_rotation(-45)
-
 def timeticks(axis, ts, te, floatepoch, nbins=10):
     # convert ts and te to Timestamp objects
     ts = pandas.Timestamp(ts)
@@ -344,7 +344,56 @@ def timeticks(axis, ts, te, floatepoch, nbins=10):
     axis.set_major_formatter(mpl.ticker.FuncFormatter(tickformatter))
     axis.set_major_locator(mpl.ticker.MaxNLocator(nbins=nbins, integer=False))
 
-    # rotate x-axis tick labels so they can be read and fit together
-    for label in axis.get_ticklabels():
-        label.set_ha('left')
-        label.set_rotation(-45)
+def rotate_ticklabels(axis, rotation=45, minor=False):
+    """Rotate ticklabels for the given axis.
+
+    Based on the tick position and the rotation angle, the labels will be aligned
+    so that they line up nicely with the ticks.
+
+    """
+    if minor:
+        ticks = axis.get_minor_ticks()
+    else:
+        ticks = axis.get_major_ticks()
+
+    if isinstance(axis, mpl.axis.XAxis):
+        poses = ['bottom', 'top']
+    elif isinstance(axis, mpl.axis.YAxis):
+        poses = ['left', 'right']
+
+    # get tick labels for bottom/top or left/right
+    labels1 = [tick.label1 for tick in ticks]
+    labels2 = [tick.label2 for tick in ticks]
+
+    labelses = [labels1, labels2]
+
+    for labels, pos in zip(labelses, poses):
+        for label in labels:
+            label.set_rotation(rotation)
+            # anchor makes it possible to "center" end of labels on tick
+            label.set_rotation_mode('anchor')
+
+            # rotation wrapped to [0, 360]
+            rot = label.get_rotation()
+
+            if pos == 'left':
+                if rot <= 180:
+                    label.set_va('center')
+                else:
+                    label.set_va('top')
+            elif pos == 'right':
+                if rot <= 180:
+                    label.set_va('top')
+                else:
+                    label.set_va('center')
+            elif pos == 'bottom':
+                if rot <= 180:
+                    label.set_ha('right')
+                else:
+                    label.set_ha('left')
+            elif pos == 'top':
+                label.set_va('baseline')
+                if rot <= 180:
+                    label.set_ha('left')
+                else:
+                    label.set_ha('right')
