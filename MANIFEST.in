@@ -2,3 +2,4 @@ recursive-include echolect *.pyx
 include LICENSE
 include README.rst
 include versioneer.py
+include echolect/_version.py
