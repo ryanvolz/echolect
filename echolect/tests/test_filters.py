@@ -53,8 +53,8 @@ def check_filters(L, M, hdtype, xdtype):
     for filt in filts[1:]:
         y1 = filt(x)
         np.testing.assert_array_almost_equal(y0, y1, decimal=5,
-                                             err_msg=err_msg.format(filt.func_name,
-                                                                    reffilt.func_name))
+                                             err_msg=err_msg.format(filt.__name__,
+                                                                    reffilt.__name__))
 
 def test_filters():
     Ls = (13, 50)

@@ -170,7 +170,7 @@ class voltage_reader(object):
 
         return vlt
 
-    def read_from_block(self, block_num, start, stop=None, step=1, nframes=1
+    def read_from_block(self, block_num, start, stop=None, step=1, nframes=1,
                         chan_idx=slice(None), sample_idx=slice(None)):
         start = wrap_check_start(self.nprofiles_per_block, start)
         if stop is None:

@@ -52,7 +52,9 @@ def check_doppler_banks(L, M, N, hdtype, xdtype):
     y0 = reffilt(x)
     for filt in filts[1:]:
         y1 = filt(x)
-        np.testing.assert_array_almost_equal(y0, y1, err_msg=err_msg.format(filt.func_name, reffilt.func_name))
+        np.testing.assert_array_almost_equal(
+            y0, y1, err_msg=err_msg.format(filt.__name__, reffilt.__name__)
+        )
 
 def test_doppler_banks():
     Ls = (16, 16, 16, 16, 10, 10)

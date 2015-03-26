@@ -22,7 +22,7 @@ else:
 
 from . import filters
 from .util import pow2, zero_pad
-from echolect.filtering import libdopplerbanks
+from . import libdopplerbanks
 
 _THREADS = multiprocessing.cpu_count()
 
