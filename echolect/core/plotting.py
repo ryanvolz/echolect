@@ -11,6 +11,7 @@ import numpy as np
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 from mpl_toolkits import axes_grid1
+import pandas
 
 from echolect.tools.time import datetime_from_float, datetime_to_float, timestamp_strftime
 
