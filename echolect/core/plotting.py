@@ -14,7 +14,8 @@ from mpl_toolkits import axes_grid1
 
 from echolect.tools.time import datetime_from_float, datetime_to_float, timestamp_strftime
 
-__all__ = ['rtiplot', 'implot', 'colorbar', 'make_axes_fixed', 'rotate_ticklabels',
+__all__ = ['rtiplot', 'implot', 'colorbar', 'size_dpi_nointerp',
+           'make_axes_fixed', 'rotate_ticklabels',
            'arrayticks', 'timeticks_helper', 'timeticks_array', 'timeticks']
 
 def rtiplot(z, t, r, **kwargs):
@@ -164,6 +165,18 @@ def colorbar(img, position='right', size=0.125, pad=0.1, label=None, bins=None,
     fig.sca(ax)
 
     return cb
+
+def size_dpi_nointerp(nx, ny, maxwidth, maxheight):
+    """width, height, dpi for displaying pixels with no interpolation"""
+    xdpi_min = int(np.ceil(nx/float(maxwidth)))
+    ydpi_min = int(np.ceil(ny/float(maxheight)))
+    dpi = max(xdpi_min, ydpi_min)
+    xstretch = dpi//xdpi_min
+    ystretch = dpi//ydpi_min
+    width = float(nx)/dpi*xstretch
+    height = float(ny)/dpi*ystretch
+
+    return width, height, dpi
 
 def make_axes_fixed(ax, xinches, yinches):
     # make a fixed size divider, located using existing locator if necessary
