@@ -143,7 +143,8 @@ if HAS_NUMBA:
         #def shiftconv_numba_fft(x):
             #return fun(H, X, Y, x)
 
-        @jit(argtypes=[xtype[::1]])
+        #@jit(argtypes=[xtype[::1]])
+        @jit
         def shiftconv_numba_fft(x):
             xpad[:M] = x
             xfft.execute() # input is xpad, output is X
@@ -247,7 +248,8 @@ if HAS_NUMBA:
 
         xtype = numba.__getattribute__(str(np.dtype(xdtype)))
 
-        @jit(argtypes=[xtype[::1]])
+        #@jit(argtypes=[xtype[::1]])
+        @jit
         def sweepspectra_numba(x):
             xpad[(L - 1):outlen] = x
             for p in range(outlen):

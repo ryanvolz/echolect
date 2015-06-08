@@ -110,7 +110,8 @@ if HAS_NUMBA:
         outdtype = np.result_type(h.dtype, xdtype)
         outtype = numba.__getattribute__(str(outdtype))
 
-        @jit(restype=outtype[::1], argtypes=[htype[::1], xtype[::1]])
+        #@jit(restype=outtype[::1], argtypes=[htype[::1], xtype[::1]])
+        @jit
         def conv(h, x):
             out = np.zeros(outlen, outdtype)
             for m in range(M):
@@ -257,7 +258,8 @@ if HAS_NUMBA:
         #def numba_fftw(x):
             #return filt(xpad, X, H, y, x)
 
-        @jit(argtypes=[xtype[::1]])
+        #@jit(argtypes=[xtype[::1]])
+        @jit
         def numba_fftw(x):
             xpad[:M] = x
             xfft.execute() # input in xpad, result in X
