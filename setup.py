@@ -17,12 +17,6 @@ import numpy as np
 
 import versioneer
 
-versioneer.VCS = 'git'
-versioneer.versionfile_source = 'echolect/_version.py'
-versioneer.versionfile_build = 'echolect/_version.py'
-versioneer.tag_prefix = 'v' # tags are like v1.2.0
-versioneer.parentdir_prefix = 'echolect-' # dirname like 'echolect-1.2.0'
-
 try:
     from Cython.Build import cythonize
     from Cython.Compiler.Options import parse_directive_list
