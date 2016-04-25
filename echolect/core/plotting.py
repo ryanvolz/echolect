@@ -44,7 +44,7 @@ def implot(z, x, y, xlabel=None, ylabel=None, title=None,
     else:
         if xistime:
             # use day of the given first time as epoch
-            xepoch = x[0].astype('datetime64[D]')
+            xepoch = x[0].astype('datetime64[D]').astype(x[0].dtype)
             x_float = datetime_to_float(x, epoch=xepoch)
             xstart = x_float[0]
             xend = x_float[-1]
@@ -54,7 +54,7 @@ def implot(z, x, y, xlabel=None, ylabel=None, title=None,
         xstep = (xend - xstart)/(x.shape[0] - 1)
         if yistime:
             # use day of the given first time as epoch
-            yepoch = y[0].astype('datetime64[D]')
+            yepoch = y[0].astype('datetime64[D]').astype(x[0].dtype)
             y_float = datetime_to_float(y, epoch=yepoch)
             ystart = y_float[0]
             yend = y_float[-1]
